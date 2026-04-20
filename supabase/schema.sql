@@ -5,14 +5,14 @@
 -- Tables use a "gow_" prefix to avoid collisions.
 -- ============================================================
 
--- Games
+-- Games (current_question_id added as FK after gow_questions is created)
 create table public.gow_games (
   code                text primary key,
   phase               text not null default 'lobby',   -- lobby | play | finished
   question_phase      text,                             -- answering | voting | results
   round_index         int not null default 0,
   rounds_total        int not null default 3,
-  current_question_id uuid references public.gow_questions(id),
+  current_question_id uuid,
   created_at          timestamptz not null default now()
 );
 
@@ -37,6 +37,11 @@ create table public.gow_questions (
   played       boolean not null default false,
   created_at   timestamptz not null default now()
 );
+
+-- Add FK now that gow_questions exists
+alter table public.gow_games
+  add constraint gow_games_current_question_id_fkey
+  foreign key (current_question_id) references public.gow_questions(id);
 
 -- Answers (one per eligible player per question; skipped = true if player passed)
 create table public.gow_answers (
