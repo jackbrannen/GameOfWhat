@@ -88,6 +88,11 @@ export default function Play({ params }) {
     return () => clearInterval(poll)
   }, [code, myPlayerId])
 
+  const currentQuestionId = currentQuestion?.id
+  useEffect(() => {
+    setMyAnswer("")
+  }, [currentQuestionId])
+
   async function submitAnswer(skip = false) {
     if (!currentQuestion || !myPlayerId) return
     setSubmittingAnswer(true)

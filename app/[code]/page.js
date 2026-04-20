@@ -139,7 +139,7 @@ export default function Lobby({ params }) {
     )
   }
 
-  const allQuestionsIn = players.length >= 3 && players.every(p => p.question)
+  const allQuestionsIn = players.length >= 4 && players.every(p => p.question)
   const myQuestionSubmitted = !!me?.question
 
   return (
@@ -237,7 +237,7 @@ export default function Lobby({ params }) {
         </div>
         {players.length < 3 && (
           <p style={{ fontSize: 13, opacity: 0.4, fontWeight: 600, marginTop: 10 }}>
-            Need at least 3 players to start.
+            Need at least 4 players to start.
           </p>
         )}
       </div>
