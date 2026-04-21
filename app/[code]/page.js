@@ -182,7 +182,7 @@ export default function Lobby({ params }) {
       </div>
 
       {/* Start Game CTA */}
-      {allQuestionsIn && !showSettings && (
+      {allQuestionsIn && (
         <div style={{ padding: "20px 24px", background: YELLOW }}>
           <div style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(0,0,0,0.5)", marginBottom: 12 }}>
             Everyone's questions are in!
