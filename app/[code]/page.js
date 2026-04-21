@@ -9,14 +9,6 @@ const YELLOW = "#FBDF54"
 const GREEN = "#12BAAA"
 const RED = "#F04F52"
 
-function CogIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block" }}>
-      <circle cx="12" cy="12" r="3"/>
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-    </svg>
-  )
-}
 
 const inputStyle = {
   background: "rgba(255,255,255,0.1)",
@@ -41,9 +33,7 @@ export default function Lobby({ params }) {
   const [joining, setJoining] = useState(false)
   const [question, setQuestion] = useState("")
   const [submittingQuestion, setSubmittingQuestion] = useState(false)
-  const [showSettings, setShowSettings] = useState(false)
   const [rounds, setRounds] = useState("3")
-  const [savingSettings, setSavingSettings] = useState(false)
   const [notFound, setNotFound] = useState(false)
 
   const me = players.find(p => p.id === myPlayerId)
@@ -110,12 +100,10 @@ export default function Lobby({ params }) {
     await loadState()
   }
 
-  async function saveSettings() {
-    setSavingSettings(true)
-    await supabase.from("gow_games").update({ rounds_total: Math.max(1, Number(rounds) || 1) }).eq("code", code)
-    setSavingSettings(false)
-    setShowSettings(false)
-    await loadState()
+  async function saveRounds(val) {
+    const n = Math.max(1, Number(val) || 1)
+    setRounds(String(n))
+    await supabase.from("gow_games").update({ rounds_total: n }).eq("code", code)
   }
 
   async function startGame() {
@@ -155,48 +143,43 @@ export default function Lobby({ params }) {
             {code}
           </div>
         </div>
-        <div style={{ display: "flex", gap: 8, flexShrink: 0, marginTop: 4 }}>
-          <button
-            onClick={async () => {
-              const url = window.location.href
-              if (navigator.share) await navigator.share({ title: `Join Game of What — ${code}`, url })
-              else { await navigator.clipboard.writeText(url); alert("Link copied!") }
-            }}
-            style={{ background: "rgba(255,255,255,0.12)", color: "white", fontSize: 13, fontWeight: 800, padding: "10px 16px" }}
-          >
-            Invite
-          </button>
-          <button
-            onClick={() => setShowSettings(s => !s)}
-            style={{ background: "rgba(255,255,255,0.12)", color: "white", padding: "10px 12px", display: "flex", alignItems: "center" }}
-          >
-            {showSettings ? <span style={{ fontSize: 16 }}>✕</span> : <CogIcon />}
-          </button>
-        </div>
+        <button
+          onClick={async () => {
+            const url = window.location.href
+            if (navigator.share) await navigator.share({ title: `Join Game of What — ${code}`, url })
+            else { await navigator.clipboard.writeText(url); alert("Link copied!") }
+          }}
+          style={{ background: "rgba(255,255,255,0.12)", color: "white", fontSize: 13, fontWeight: 800, padding: "10px 16px", flexShrink: 0, marginTop: 4 }}
+        >
+          Invite
+        </button>
       </div>
 
-      {/* Settings panel */}
-      {showSettings && (
-        <div style={{ padding: "20px 24px", background: "rgba(0,0,0,0.4)" }}>
-          <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", color: "white", fontSize: 16, fontWeight: 600, marginBottom: 16 }}>
-            Rounds
-            <select
-              value={rounds}
-              onChange={e => setRounds(e.target.value)}
-              style={{ background: "rgba(255,255,255,0.1)", color: "white", fontSize: 16, padding: "8px 12px", border: "1px solid rgba(255,255,255,0.2)", marginLeft: 12 }}
+      {/* Rounds selector — always visible */}
+      <div style={{ padding: "16px 24px", background: "rgba(0,0,0,0.2)", display: "flex", alignItems: "center", gap: 16 }}>
+        <span style={{ fontSize: 16, fontWeight: 800, color: "white" }}>Rounds</span>
+        <div style={{ display: "flex", gap: 6 }}>
+          {[1,2,3,4,5].map(v => (
+            <button
+              key={v}
+              onClick={() => saveRounds(v)}
+              style={{
+                background: Number(rounds) === v ? YELLOW : "rgba(255,255,255,0.1)",
+                color: Number(rounds) === v ? "#000" : "white",
+                fontSize: 18,
+                fontWeight: 900,
+                width: 44,
+                height: 44,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
             >
-              {[1,2,3,4,5].map(v => <option key={v} value={String(v)}>{v}</option>)}
-            </select>
-          </label>
-          <button
-            onClick={saveSettings}
-            disabled={savingSettings}
-            style={{ background: YELLOW, color: "#000", fontSize: 16, fontWeight: 900, padding: "14px", width: "100%", display: "block" }}
-          >
-            {savingSettings ? "Saving…" : "Save Settings"}
-          </button>
+              {v}
+            </button>
+          ))}
         </div>
-      )}
+      </div>
 
       {/* Start Game CTA */}
       {allQuestionsIn && !showSettings && (

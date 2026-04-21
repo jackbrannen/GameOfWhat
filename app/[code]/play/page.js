@@ -17,12 +17,14 @@ export default function Play({ params }) {
   const [myPlayerId, setMyPlayerId] = useState(null)
   const [game, setGame] = useState(null)
   const [players, setPlayers] = useState([])
-  const [currentQuestion, setCurrentQuestion] = useState(null) // { id, text, author_id }
-  const [answers, setAnswers] = useState([])   // [{ id, text, player_id, vote_count }]
+  const [currentQuestion, setCurrentQuestion] = useState(null)
+  const [answers, setAnswers] = useState([])
+  const [votes, setVotes] = useState([])       // { answer_id, voter_id } — loaded in results phase
   const [myAnswer, setMyAnswer] = useState("")
   const [submittingAnswer, setSubmittingAnswer] = useState(false)
-  const [myVoteId, setMyVoteId] = useState(null) // answer id I voted for
+  const [myVoteId, setMyVoteId] = useState(null)
   const [submittingVote, setSubmittingVote] = useState(false)
+  const [selfFlash, setSelfFlash] = useState(false)
 
   useEffect(() => {
     const existing = localStorage.getItem(`gow:${code}:playerId`)
@@ -38,11 +40,10 @@ export default function Play({ params }) {
     if (!gameData) return
 
     if (gameData.phase === "lobby") { router.replace(`/${code}`); return }
-    if (gameData.phase === "finished") { setGame(gameData); setPlayers([]); return }
 
     const { data: playerData } = await supabase
       .from("gow_players")
-      .select("id,name,score,question,created_at")
+      .select("id,name,score,created_at")
       .eq("game_code", code)
       .order("created_at", { ascending: true })
 
@@ -65,20 +66,18 @@ export default function Play({ params }) {
       setAnswers(answerData ?? [])
 
       if (myPlayerId) {
-        const existing = (answerData ?? []).find(a => a.player_id === myPlayerId)
-        if (existing) setMyAnswer(existing.text ?? "")
-
         const { data: voteData } = await supabase
           .from("gow_votes")
-          .select("answer_id")
+          .select("answer_id,voter_id")
           .eq("question_id", gameData.current_question_id)
-          .eq("voter_id", myPlayerId)
-          .maybeSingle()
-        setMyVoteId(voteData?.answer_id ?? null)
+        setVotes(voteData ?? [])
+        const myVote = (voteData ?? []).find(v => v.voter_id === myPlayerId)
+        setMyVoteId(myVote ? (myVote.answer_id ?? "nota") : null)
       }
     } else {
       setCurrentQuestion(null)
       setAnswers([])
+      setVotes([])
     }
   }
 
@@ -89,9 +88,7 @@ export default function Play({ params }) {
   }, [code, myPlayerId])
 
   const currentQuestionId = currentQuestion?.id
-  useEffect(() => {
-    setMyAnswer("")
-  }, [currentQuestionId])
+  useEffect(() => { setMyAnswer("") }, [currentQuestionId])
 
   async function submitAnswer(skip = false) {
     if (!currentQuestion || !myPlayerId) return
@@ -107,10 +104,10 @@ export default function Play({ params }) {
     await loadState()
   }
 
-  async function submitVote(answerId) {
+  async function submitVote(answerId) { // null = NOTA
     if (!currentQuestion || !myPlayerId || submittingVote) return
     setSubmittingVote(true)
-    setMyVoteId(answerId)
+    setMyVoteId(answerId ?? "nota")
     await supabase.rpc("gow_submit_vote", {
       p_code: code,
       p_question_id: currentQuestion.id,
@@ -126,6 +123,11 @@ export default function Play({ params }) {
     await loadState()
   }
 
+  async function startNextRound() {
+    await supabase.rpc("gow_start_next_round", { p_code: code })
+    await loadState()
+  }
+
   if (!game) {
     return (
       <div style={{ minHeight: "100dvh", background: BG, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -137,34 +139,19 @@ export default function Play({ params }) {
   const me = players.find(p => p.id === myPlayerId)
   const questionAuthor = players.find(p => p.id === currentQuestion?.author_id)
   const isQuestionAuthor = myPlayerId === currentQuestion?.author_id
-
-  // question_phase: "answering" | "voting" | "results"
   const phase = game.question_phase
-
   const myAnswerRecord = answers.find(a => a.player_id === myPlayerId)
   const hasSubmittedAnswer = !!myAnswerRecord
   const hasSkipped = myAnswerRecord?.skipped
-
-  // Players who need to answer (excludes question author)
   const eligibleAnswerers = players.filter(p => p.id !== currentQuestion?.author_id)
-  const answeredCount = answers.filter(a => !a.skipped || a.skipped === false).length + answers.filter(a => a.skipped).length
-  // Actually just count all submitted (answered or skipped)
   const submittedCount = answers.length
   const waitingOnCount = eligibleAnswerers.length - submittedCount
+  const sortedPlayers = [...players].sort((a, b) => b.score - a.score)
 
-  const allVoted = (() => {
-    // everyone who submitted a non-skipped answer can vote; question author can also vote
-    const voterIds = new Set([
-      ...answers.filter(a => !a.skipped).map(a => a.player_id),
-      currentQuestion?.author_id,
-    ])
-    const { data: _ } = { data: null } // placeholder
-    return false // will be computed from game state
-  })()
+  const notaVoters = votes.filter(v => v.answer_id === null).map(v => players.find(p => p.id === v.voter_id)?.name).filter(Boolean)
 
-  // Game over
+  // ── GAME OVER ──────────────────────────────────────────────
   if (game.phase === "finished") {
-    const sorted = [...players].sort((a, b) => b.score - a.score)
     return (
       <div style={{ minHeight: "100dvh", background: BG, color: "white", padding: "40px 24px" }}>
         <div style={{ fontSize: "clamp(56px, 16vw, 88px)", fontWeight: 900, lineHeight: 0.9, marginBottom: 32 }}>
@@ -173,17 +160,57 @@ export default function Play({ params }) {
         <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", opacity: 0.5, marginBottom: 16 }}>
           Final Scores
         </div>
-        {sorted.map((p, i) => (
-          <div key={p.id} style={{ display: "flex", alignItems: "baseline", gap: 12, padding: "12px 0", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
-            <span style={{ fontSize: 15, fontWeight: 800, opacity: 0.4, minWidth: 20 }}>{i + 1}</span>
-            <span style={{ fontSize: 22, fontWeight: 700, flex: 1 }}>{p.name}</span>
-            <span style={{ fontSize: 28, fontWeight: 900, color: i === 0 ? YELLOW : "white" }}>{p.score}</span>
+        {sortedPlayers.map((p, i) => (
+          <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+            <div style={{ background: i === 0 ? YELLOW : "rgba(255,255,255,0.12)", color: i === 0 ? "#000" : "white", fontSize: 22, fontWeight: 900, minWidth: 52, textAlign: "center", padding: "8px 0" }}>
+              {p.score}
+            </div>
+            <span style={{ fontSize: 22, fontWeight: 700 }}>{p.name}</span>
           </div>
         ))}
       </div>
     )
   }
 
+  // ── BETWEEN ROUNDS ────────────────────────────────────────
+  if (game.phase === "between_rounds") {
+    return (
+      <div style={{ minHeight: "100dvh", background: BG, color: "white", padding: "40px 24px", display: "flex", flexDirection: "column" }}>
+        <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", opacity: 0.45, marginBottom: 12 }}>
+          Round complete
+        </div>
+        <div style={{ fontSize: "clamp(44px, 12vw, 72px)", fontWeight: 900, lineHeight: 1, marginBottom: 8, whiteSpace: "nowrap" }}>
+          Round {game.round_index}
+        </div>
+        <div style={{ fontSize: 16, fontWeight: 700, opacity: 0.5, marginBottom: 48 }}>
+          of {game.rounds_total}
+        </div>
+
+        <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", opacity: 0.45, marginBottom: 16 }}>
+          Scores
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 48 }}>
+          {sortedPlayers.map((p, i) => (
+            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <div style={{ background: i === 0 ? YELLOW : "rgba(255,255,255,0.12)", color: i === 0 ? "#000" : "white", fontSize: 24, fontWeight: 900, minWidth: 56, textAlign: "center", padding: "10px 0" }}>
+                {p.score}
+              </div>
+              <span style={{ fontSize: 20, fontWeight: 700, color: p.id === myPlayerId ? YELLOW : "white" }}>{p.name}</span>
+            </div>
+          ))}
+        </div>
+
+        <button
+          onClick={startNextRound}
+          style={{ background: YELLOW, color: "#000", fontSize: 22, fontWeight: 900, padding: "22px", width: "100%", display: "block", marginTop: "auto" }}
+        >
+          Write Questions for Round {game.round_index + 1}
+        </button>
+      </div>
+    )
+  }
+
+  // ── PLAY ──────────────────────────────────────────────────
   return (
     <div style={{ minHeight: "100dvh", background: BG, color: "white", display: "flex", flexDirection: "column" }}>
 
@@ -192,8 +219,8 @@ export default function Play({ params }) {
         <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", opacity: 0.4 }}>
           Round {(game.round_index ?? 0) + 1} of {game.rounds_total ?? 3}
         </div>
-        <div style={{ display: "flex", gap: 16 }}>
-          {[...players].sort((a, b) => b.score - a.score).map(p => (
+        <div style={{ display: "flex", gap: 12 }}>
+          {sortedPlayers.map(p => (
             <div key={p.id} style={{ textAlign: "center" }}>
               <div style={{ fontSize: 10, opacity: 0.45, fontWeight: 700, marginBottom: 1 }}>{p.name}</div>
               <div style={{ fontSize: 20, fontWeight: 900, color: p.id === myPlayerId ? YELLOW : "white" }}>{p.score}</div>
@@ -221,14 +248,14 @@ export default function Play({ params }) {
         {phase === "answering" && (
           <>
             {isQuestionAuthor ? (
-              <div style={{ marginBottom: 24 }}>
+              <div>
                 <div style={{ fontSize: 15, fontWeight: 700, opacity: 0.55, marginBottom: 20 }}>
                   This is your question — sit back while others answer.
                 </div>
                 <div style={{ fontSize: 13, fontWeight: 700, opacity: 0.4, marginBottom: 10 }}>
-                  Answers in: {submittedCount} / {eligibleAnswerers.length}
+                  {submittedCount} / {eligibleAnswerers.length} answered
                 </div>
-                {players.filter(p => p.id !== currentQuestion?.author_id).map(p => {
+                {eligibleAnswerers.map(p => {
                   const submitted = answers.some(a => a.player_id === p.id)
                   return (
                     <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
@@ -239,7 +266,7 @@ export default function Play({ params }) {
                 })}
               </div>
             ) : hasSubmittedAnswer ? (
-              <div style={{ marginBottom: 24 }}>
+              <div>
                 <div style={{ fontSize: 15, fontWeight: 700, opacity: 0.55, marginBottom: 4 }}>
                   Your answer: <span style={{ opacity: 1, color: "white" }}>{hasSkipped ? "(skipped)" : myAnswerRecord?.text}</span>
                 </div>
@@ -248,7 +275,7 @@ export default function Play({ params }) {
                 </div>
               </div>
             ) : (
-              <div style={{ marginBottom: 24 }}>
+              <div>
                 <textarea
                   value={myAnswer}
                   onChange={e => setMyAnswer(e.target.value)}
@@ -295,7 +322,7 @@ export default function Play({ params }) {
         {phase === "voting" && (
           <>
             <div style={{ fontSize: 13, fontWeight: 700, opacity: 0.45, marginBottom: 16 }}>
-              {myVoteId ? "Vote cast — waiting for others…" : isQuestionAuthor ? "Vote for your favorite answer:" : "Vote for your favorite answer (not your own):"}
+              {myVoteId ? "Vote cast — waiting for others…" : "Vote for your favorite:"}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 }}>
               {answers.filter(a => !a.skipped).map(answer => {
@@ -303,28 +330,73 @@ export default function Play({ params }) {
                 const isSelected = myVoteId === answer.id
                 const canVote = !isMine && !myVoteId
                 return (
-                  <button
-                    key={answer.id}
-                    onClick={() => canVote && submitVote(answer.id)}
-                    disabled={!canVote || submittingVote}
-                    style={{
-                      background: isSelected ? YELLOW : CARD_BG,
-                      color: isSelected ? "#000" : "white",
-                      fontSize: 18,
-                      fontWeight: 700,
-                      padding: "18px 20px",
-                      textAlign: "left",
-                      width: "100%",
-                      display: "block",
-                      opacity: myVoteId && !isSelected ? 0.45 : 1,
-                      border: isMine ? "1px solid rgba(255,255,255,0.15)" : "none",
-                    }}
-                  >
-                    {answer.text}
-                    {isMine && <span style={{ fontSize: 12, opacity: 0.5, marginLeft: 8 }}>(yours)</span>}
-                  </button>
+                  <div key={answer.id}>
+                    <button
+                      onClick={() => {
+                        if (isMine) {
+                          setSelfFlash(true)
+                          setTimeout(() => setSelfFlash(false), 500)
+                          return
+                        }
+                        if (canVote) submitVote(answer.id)
+                      }}
+                      disabled={(!canVote && !isMine) || submittingVote}
+                      style={{
+                        background: isSelected ? YELLOW : isMine && selfFlash ? "rgba(255,80,80,0.25)" : CARD_BG,
+                        color: isSelected ? "#000" : "white",
+                        fontSize: 18,
+                        fontWeight: 700,
+                        padding: "18px 20px",
+                        textAlign: "left",
+                        width: "100%",
+                        display: "block",
+                        opacity: myVoteId && !isSelected ? 0.45 : 1,
+                      }}
+                    >
+                      {answer.text}
+                    </button>
+                    {isMine && (
+                      <div style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: selfFlash ? RED : "rgba(255,255,255,0.35)",
+                        marginTop: 4,
+                        marginLeft: 2,
+                        transition: "color 150ms",
+                      }}>
+                        Your answer — you can't vote for yourself
+                      </div>
+                    )}
+                  </div>
                 )
               })}
+
+              {/* None of the Above */}
+              {!myVoteId && (
+                <button
+                  onClick={() => submitVote(null)}
+                  disabled={submittingVote}
+                  style={{
+                    background: "rgba(255,255,255,0.04)",
+                    color: "rgba(255,255,255,0.5)",
+                    fontSize: 15,
+                    fontWeight: 700,
+                    padding: "16px 20px",
+                    textAlign: "left",
+                    width: "100%",
+                    display: "block",
+                    marginTop: 4,
+                  }}
+                >
+                  None of the above
+                </button>
+              )}
+              {myVoteId === "nota" && (
+                <div style={{ background: "rgba(255,255,255,0.04)", padding: "16px 20px", opacity: 0.5 }}>
+                  <span style={{ fontSize: 15, fontWeight: 700, color: "white" }}>None of the above</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: YELLOW, marginLeft: 10 }}>✓ your vote</span>
+                </div>
+              )}
             </div>
           </>
         )}
@@ -336,28 +408,60 @@ export default function Play({ params }) {
               {answers.filter(a => !a.skipped).sort((a, b) => b.vote_count - a.vote_count).map(answer => {
                 const author = players.find(p => p.id === answer.player_id)
                 const pts = answer.vote_count
+                const voters = votes
+                  .filter(v => v.answer_id === answer.id)
+                  .map(v => players.find(p => p.id === v.voter_id)?.name)
+                  .filter(Boolean)
                 return (
-                  <div
-                    key={answer.id}
-                    style={{
-                      background: pts > 0 ? "rgba(251,223,84,0.1)" : CARD_BG,
-                      padding: "16px 20px",
-                      borderLeft: pts > 0 ? `4px solid ${YELLOW}` : "4px solid transparent",
-                    }}
-                  >
-                    <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>{answer.text}</div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ fontSize: 14, fontWeight: 700, opacity: 0.55 }}>{author?.name ?? "?"}</span>
-                      {pts > 0 && (
-                        <span style={{ fontSize: 16, fontWeight: 900, color: YELLOW }}>+{pts} {pts === 1 ? "vote" : "votes"}</span>
-                      )}
+                  <div key={answer.id} style={{ background: CARD_BG, padding: "16px 20px" }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: voters.length ? 10 : 0 }}>
+                      <div style={{
+                        background: pts > 0 ? YELLOW : "rgba(255,255,255,0.12)",
+                        color: pts > 0 ? "#000" : "rgba(255,255,255,0.5)",
+                        fontSize: 20,
+                        fontWeight: 900,
+                        minWidth: 44,
+                        textAlign: "center",
+                        padding: "6px 0",
+                        flexShrink: 0,
+                      }}>
+                        {pts > 0 ? `+${pts}` : "–"}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.3 }}>{answer.text}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, opacity: 0.5, marginTop: 3 }}>{author?.name ?? "?"}</div>
+                      </div>
                     </div>
+                    {voters.length > 0 && (
+                      <div style={{ fontSize: 12, fontWeight: 700, opacity: 0.45, marginLeft: 58 }}>
+                        Voted by: {voters.join(", ")}
+                      </div>
+                    )}
                   </div>
                 )
               })}
+
+              {/* NOTA result */}
+              {notaVoters.length > 0 && (
+                <div style={{ background: CARD_BG, padding: "16px 20px" }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 10 }}>
+                    <div style={{ background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.5)", fontSize: 20, fontWeight: 900, minWidth: 44, textAlign: "center", padding: "6px 0", flexShrink: 0 }}>
+                      –
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.3, opacity: 0.6 }}>None of the above</div>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 700, opacity: 0.45, marginLeft: 58 }}>
+                    Voted by: {notaVoters.join(", ")}
+                  </div>
+                </div>
+              )}
+
+              {/* Skippers */}
               {answers.filter(a => a.skipped).length > 0 && (
                 <div style={{ fontSize: 13, opacity: 0.35, fontWeight: 600, marginTop: 4 }}>
-                  {answers.filter(a => a.skipped).length} player{answers.filter(a => a.skipped).length > 1 ? "s" : ""} skipped
+                  Skipped: {answers.filter(a => a.skipped).map(a => players.find(p => p.id === a.player_id)?.name).filter(Boolean).join(", ")}
                 </div>
               )}
             </div>
@@ -371,16 +475,18 @@ export default function Play({ params }) {
           </>
         )}
 
-        {/* Scores — shown during play, lower down */}
+        {/* Scores — shown below during answering/voting */}
         {phase !== "results" && (
           <div style={{ marginTop: "auto", paddingTop: 32 }}>
             <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", opacity: 0.35, marginBottom: 12 }}>
               Scores
             </div>
-            {[...players].sort((a, b) => b.score - a.score).map(p => (
-              <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                <span style={{ fontSize: 16, fontWeight: 700, flex: 1, color: p.id === myPlayerId ? YELLOW : "white" }}>{p.name}</span>
-                <span style={{ fontSize: 20, fontWeight: 900 }}>{p.score}</span>
+            {sortedPlayers.map(p => (
+              <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                <div style={{ background: "rgba(255,255,255,0.1)", fontSize: 18, fontWeight: 900, minWidth: 40, textAlign: "center", padding: "4px 0", color: "white" }}>
+                  {p.score}
+                </div>
+                <span style={{ fontSize: 16, fontWeight: 700, color: p.id === myPlayerId ? YELLOW : "white" }}>{p.name}</span>
               </div>
             ))}
           </div>
