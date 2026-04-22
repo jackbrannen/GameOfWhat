@@ -449,9 +449,25 @@ export default function Play({ params }) {
               {submittingRoundQuestion ? "Submitting…" : "Submit Question"}
             </button>
 
+            {/* Ideas button */}
+            <div style={{ marginTop: 16 }}>
+              {promptsPhase !== "done" ? (
+                <button
+                  onClick={handleDrawPrompts}
+                  style={{ background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.6)", fontSize: 14, fontWeight: 700, padding: "12px 18px", display: "block", width: "100%" }}
+                >
+                  {promptsPhase === "none" ? "✦ Random ideas" : "✦ 3 more ideas"}
+                </button>
+              ) : (
+                <div style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.25)", padding: "12px 18px", background: "rgba(255,255,255,0.05)" }}>
+                  No more ideas for this question
+                </div>
+              )}
+            </div>
+
             {/* Prompt tags */}
             {shownPrompts.length > 0 && (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 20 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 14 }}>
                 {shownPrompts.map((p, i) => (
                   <div key={i} style={{
                     padding: "7px 14px",
@@ -467,22 +483,6 @@ export default function Play({ params }) {
                 ))}
               </div>
             )}
-
-            {/* Ideas button */}
-            <div style={{ marginTop: shownPrompts.length ? 14 : 20 }}>
-              {promptsPhase !== "done" ? (
-                <button
-                  onClick={handleDrawPrompts}
-                  style={{ background: "transparent", color: "rgba(255,255,255,0.45)", fontSize: 14, fontWeight: 700, padding: "10px 0", border: "none", display: "block" }}
-                >
-                  {promptsPhase === "none" ? "✦ Random ideas" : "✦ 3 more ideas"}
-                </button>
-              ) : (
-                <div style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.25)" }}>
-                  No more ideas for this question
-                </div>
-              )}
-            </div>
           </div>
         )}
 

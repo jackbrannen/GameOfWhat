@@ -224,13 +224,34 @@ create or replace function public.gow_retract_vote(
 )
 returns void language plpgsql security definer as $$
 declare
-  g record;
+  g             record;
+  old_answer_id uuid;
 begin
   select * into g from public.gow_games where code = p_code for update;
   if not found or g.phase <> 'play' or g.question_phase <> 'voting' then return; end if;
   if g.current_question_id <> p_question_id then return; end if;
 
+  select answer_id into old_answer_id
+  from public.gow_votes
+  where question_id = p_question_id and voter_id = p_voter_id;
+
   delete from public.gow_votes
   where question_id = p_question_id and voter_id = p_voter_id;
+
+  -- Recalculate vote_count on the previously-voted answer (and any twins)
+  if old_answer_id is not null then
+    update public.gow_answers
+    set vote_count = (select count(*) from public.gow_votes where answer_id = old_answer_id)
+    where id = old_answer_id;
+
+    update public.gow_answers a_twin
+    set vote_count = (select count(*) from public.gow_votes where answer_id = old_answer_id)
+    from public.gow_answers a_primary
+    where a_primary.id = old_answer_id
+      and a_twin.question_id = p_question_id
+      and a_twin.id <> old_answer_id
+      and lower(trim(a_twin.text)) = lower(trim(a_primary.text))
+      and not a_twin.skipped;
+  end if;
 end;
 $$;
