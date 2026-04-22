@@ -25,6 +25,8 @@ export default function Play({ params }) {
   const [myVoteId, setMyVoteId] = useState(null)
   const [submittingVote, setSubmittingVote] = useState(false)
   const [selfFlash, setSelfFlash] = useState(false)
+  const [roundQuestion, setRoundQuestion] = useState("")
+  const [submittingRoundQuestion, setSubmittingRoundQuestion] = useState(false)
 
   useEffect(() => {
     const existing = localStorage.getItem(`gow:${code}:playerId`)
@@ -43,7 +45,7 @@ export default function Play({ params }) {
 
     const { data: playerData } = await supabase
       .from("gow_players")
-      .select("id,name,score,created_at")
+      .select("id,name,score,question,created_at")
       .eq("game_code", code)
       .order("created_at", { ascending: true })
 
@@ -123,6 +125,16 @@ export default function Play({ params }) {
     await loadState()
   }
 
+  async function submitRoundQuestion() {
+    const trimmed = roundQuestion.trim()
+    if (!trimmed || submittingRoundQuestion || !myPlayerId) return
+    setSubmittingRoundQuestion(true)
+    await supabase.from("gow_players").update({ question: trimmed }).eq("id", myPlayerId)
+    setSubmittingRoundQuestion(false)
+    setRoundQuestion("")
+    await loadState()
+  }
+
   async function startNextRound() {
     await supabase.rpc("gow_start_next_round", { p_code: code })
     await loadState()
@@ -174,6 +186,9 @@ export default function Play({ params }) {
 
   // ── BETWEEN ROUNDS ────────────────────────────────────────
   if (game.phase === "between_rounds") {
+    const allNextQuestionsIn = players.length > 0 && players.every(p => p.question)
+    const myNextQuestion = me?.question
+
     return (
       <div style={{ minHeight: "100dvh", background: BG, color: "white", padding: "40px 24px", display: "flex", flexDirection: "column" }}>
         <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", opacity: 0.45, marginBottom: 12 }}>
@@ -182,14 +197,14 @@ export default function Play({ params }) {
         <div style={{ fontSize: "clamp(44px, 12vw, 72px)", fontWeight: 900, lineHeight: 1, marginBottom: 8, whiteSpace: "nowrap" }}>
           Round {game.round_index}
         </div>
-        <div style={{ fontSize: 16, fontWeight: 700, opacity: 0.5, marginBottom: 48 }}>
+        <div style={{ fontSize: 16, fontWeight: 700, opacity: 0.5, marginBottom: 40 }}>
           of {game.rounds_total}
         </div>
 
         <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", opacity: 0.45, marginBottom: 16 }}>
           Scores
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 48 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 40 }}>
           {sortedPlayers.map((p, i) => (
             <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 14 }}>
               <div style={{ background: i === 0 ? YELLOW : "rgba(255,255,255,0.12)", color: i === 0 ? "#000" : "white", fontSize: 24, fontWeight: 900, minWidth: 56, textAlign: "center", padding: "10px 0" }}>
@@ -200,12 +215,58 @@ export default function Play({ params }) {
           ))}
         </div>
 
-        <button
-          onClick={startNextRound}
-          style={{ background: YELLOW, color: "#000", fontSize: 22, fontWeight: 900, padding: "22px", width: "100%", display: "block", marginTop: "auto" }}
-        >
-          Write Questions for Round {game.round_index + 1}
-        </button>
+        <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", opacity: 0.45, marginBottom: 14 }}>
+          Round {game.round_index + 1} Questions
+        </div>
+        <div style={{ background: "rgba(0,0,0,0.22)", padding: "4px 14px 10px", borderTop: "3px solid rgba(255,255,255,0.25)", marginBottom: 20 }}>
+          {players.map(p => (
+            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+              <div style={{ width: 7, height: 7, borderRadius: "50%", background: p.question ? GREEN : "rgba(255,255,255,0.2)", flexShrink: 0 }} />
+              <span style={{ fontSize: 17, fontWeight: 700, flex: 1 }}>
+                {p.name}
+                {p.id === myPlayerId && <span style={{ fontSize: 12, fontWeight: 600, opacity: 0.45, marginLeft: 6 }}>you</span>}
+              </span>
+              <span style={{ fontSize: 13, fontWeight: 600, opacity: 0.45 }}>
+                {p.question ? "Ready" : "Writing…"}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {me && !myNextQuestion && (
+          <div style={{ marginBottom: 0 }}>
+            <input
+              value={roundQuestion}
+              onChange={e => setRoundQuestion(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && submitRoundQuestion()}
+              placeholder="Write a question for everyone…"
+              maxLength={200}
+              style={{ background: "rgba(255,255,255,0.1)", color: "white", fontSize: 20, padding: "16px 18px", width: "100%", display: "block", border: "none", outline: "none", boxSizing: "border-box" }}
+            />
+            <button
+              onClick={submitRoundQuestion}
+              disabled={!roundQuestion.trim() || submittingRoundQuestion}
+              style={{ background: YELLOW, color: "#000", fontSize: 18, fontWeight: 900, padding: "16px", width: "100%", marginTop: 8, display: "block" }}
+            >
+              {submittingRoundQuestion ? "Submitting…" : "Submit Question"}
+            </button>
+          </div>
+        )}
+
+        {me && myNextQuestion && !allNextQuestionsIn && (
+          <div style={{ fontSize: 16, fontWeight: 700, opacity: 0.55 }}>
+            Your question is in. Waiting for others…
+          </div>
+        )}
+
+        {allNextQuestionsIn && (
+          <button
+            onClick={startNextRound}
+            style={{ background: YELLOW, color: "#000", fontSize: 22, fontWeight: 900, padding: "22px", width: "100%", display: "block", marginTop: "auto" }}
+          >
+            Start Round {game.round_index + 1}
+          </button>
+        )}
       </div>
     )
   }
