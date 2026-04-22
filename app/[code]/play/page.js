@@ -19,7 +19,7 @@ export default function Play({ params }) {
   const [players, setPlayers] = useState([])
   const [currentQuestion, setCurrentQuestion] = useState(null)
   const [answers, setAnswers] = useState([])
-  const [votes, setVotes] = useState([])       // { answer_id, voter_id } — loaded in results phase
+  const [votes, setVotes] = useState([])
   const [myAnswer, setMyAnswer] = useState("")
   const [submittingAnswer, setSubmittingAnswer] = useState(false)
   const [myVoteId, setMyVoteId] = useState(null)
@@ -106,7 +106,7 @@ export default function Play({ params }) {
     await loadState()
   }
 
-  async function submitVote(answerId) { // null = NOTA
+  async function submitVote(answerId) {
     if (!currentQuestion || !myPlayerId || submittingVote) return
     setSubmittingVote(true)
     setMyVoteId(answerId ?? "nota")
@@ -161,6 +161,28 @@ export default function Play({ params }) {
   const sortedPlayers = [...players].sort((a, b) => b.score - a.score)
 
   const notaVoters = votes.filter(v => v.answer_id === null).map(v => players.find(p => p.id === v.voter_id)?.name).filter(Boolean)
+
+  // Group answers with identical text (case-insensitive) for display and scoring
+  const answerGroups = answers
+    .filter(a => !a.skipped)
+    .reduce((groups, answer) => {
+      const key = (answer.text || "").trim().toLowerCase()
+      const existing = groups.find(g => g.key === key)
+      if (existing) {
+        existing.playerIds.push(answer.player_id)
+        existing.answerIds.push(answer.id)
+        existing.voteCount = Math.max(existing.voteCount, answer.vote_count)
+      } else {
+        groups.push({ key, primaryId: answer.id, answerIds: [answer.id], text: answer.text, playerIds: [answer.player_id], voteCount: answer.vote_count })
+      }
+      return groups
+    }, [])
+
+  // Who is eligible to vote and who already has
+  const eligibleVoterIds = Array.from(new Set(
+    [currentQuestion?.author_id, ...answers.filter(a => !a.skipped).map(a => a.player_id)].filter(Boolean)
+  ))
+  const votedPlayerIds = new Set(votes.map(v => v.voter_id))
 
   // ── GAME OVER ──────────────────────────────────────────────
   if (game.phase === "finished") {
@@ -240,7 +262,7 @@ export default function Play({ params }) {
         </div>
 
         {me && !myNextQuestion && (
-          <div style={{ marginBottom: 0 }}>
+          <div>
             <input
               value={roundQuestion}
               onChange={e => setRoundQuestion(e.target.value)}
@@ -281,18 +303,10 @@ export default function Play({ params }) {
   return (
     <div style={{ minHeight: "100dvh", background: BG, color: "white", display: "flex", flexDirection: "column" }}>
 
-      {/* Top bar */}
-      <div style={{ padding: "14px 20px", background: "rgba(0,0,0,0.3)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexShrink: 0 }}>
+      {/* Top bar — round indicator only, no scores */}
+      <div style={{ padding: "14px 20px", background: "rgba(0,0,0,0.3)", flexShrink: 0 }}>
         <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", opacity: 0.4 }}>
           Round {(game.round_index ?? 0) + 1} of {game.rounds_total ?? 3}
-        </div>
-        <div style={{ display: "flex", gap: 12 }}>
-          {sortedPlayers.map(p => (
-            <div key={p.id} style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 10, opacity: 0.45, fontWeight: 700, marginBottom: 1 }}>{p.name}</div>
-              <div style={{ fontSize: 20, fontWeight: 900, color: p.id === myPlayerId ? YELLOW : "white" }}>{p.score}</div>
-            </div>
-          ))}
         </div>
       </div>
 
@@ -318,9 +332,6 @@ export default function Play({ params }) {
               <div>
                 <div style={{ fontSize: 15, fontWeight: 700, opacity: 0.55, marginBottom: 20 }}>
                   This is your question — sit back while others answer.
-                </div>
-                <div style={{ fontSize: 13, fontWeight: 700, opacity: 0.4, marginBottom: 10 }}>
-                  {submittedCount} / {eligibleAnswerers.length} answered
                 </div>
                 {eligibleAnswerers.map(p => {
                   const submitted = answers.some(a => a.player_id === p.id)
@@ -349,20 +360,7 @@ export default function Play({ params }) {
                   placeholder="Your answer…"
                   maxLength={300}
                   rows={3}
-                  style={{
-                    background: "rgba(255,255,255,0.1)",
-                    color: "white",
-                    fontSize: 20,
-                    padding: "16px 18px",
-                    width: "100%",
-                    border: "none",
-                    outline: "none",
-                    resize: "none",
-                    display: "block",
-                    boxSizing: "border-box",
-                    lineHeight: 1.4,
-                    marginBottom: 8,
-                  }}
+                  style={{ background: "rgba(255,255,255,0.1)", color: "white", fontSize: 20, padding: "16px 18px", width: "100%", border: "none", outline: "none", resize: "none", display: "block", boxSizing: "border-box", lineHeight: 1.4, marginBottom: 8 }}
                 />
                 <div style={{ display: "flex", gap: 8 }}>
                   <button
@@ -392,20 +390,16 @@ export default function Play({ params }) {
               {myVoteId ? "Vote cast — waiting for others…" : "Vote for your favorite:"}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 }}>
-              {answers.filter(a => !a.skipped).map(answer => {
-                const isMine = answer.player_id === myPlayerId
-                const isSelected = myVoteId === answer.id
+              {answerGroups.map(group => {
+                const isMine = group.playerIds.includes(myPlayerId)
+                const isSelected = group.answerIds.includes(myVoteId)
                 const canVote = !isMine && !myVoteId
                 return (
-                  <div key={answer.id}>
+                  <div key={group.primaryId}>
                     <button
                       onClick={() => {
-                        if (isMine) {
-                          setSelfFlash(true)
-                          setTimeout(() => setSelfFlash(false), 500)
-                          return
-                        }
-                        if (canVote) submitVote(answer.id)
+                        if (isMine) { setSelfFlash(true); setTimeout(() => setSelfFlash(false), 500); return }
+                        if (canVote) submitVote(group.primaryId)
                       }}
                       disabled={(!canVote && !isMine) || submittingVote}
                       style={{
@@ -420,17 +414,10 @@ export default function Play({ params }) {
                         opacity: myVoteId && !isSelected ? 0.45 : 1,
                       }}
                     >
-                      {answer.text}
+                      {group.text}
                     </button>
                     {isMine && (
-                      <div style={{
-                        fontSize: 11,
-                        fontWeight: 700,
-                        color: selfFlash ? RED : "rgba(255,255,255,0.35)",
-                        marginTop: 4,
-                        marginLeft: 2,
-                        transition: "color 150ms",
-                      }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: selfFlash ? RED : "rgba(255,255,255,0.35)", marginTop: 4, marginLeft: 2, transition: "color 150ms" }}>
                         Your answer — you can't vote for yourself
                       </div>
                     )}
@@ -438,32 +425,37 @@ export default function Play({ params }) {
                 )
               })}
 
-              {/* None of the Above */}
               {!myVoteId && (
                 <button
                   onClick={() => submitVote(null)}
                   disabled={submittingVote}
-                  style={{
-                    background: "rgba(255,255,255,0.04)",
-                    color: "rgba(255,255,255,0.5)",
-                    fontSize: 15,
-                    fontWeight: 700,
-                    padding: "16px 20px",
-                    textAlign: "left",
-                    width: "100%",
-                    display: "block",
-                    marginTop: 4,
-                  }}
+                  style={{ background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.5)", fontSize: 15, fontWeight: 700, padding: "16px 20px", textAlign: "left", width: "100%", display: "block", marginTop: 4 }}
                 >
                   None of the above
                 </button>
               )}
               {myVoteId === "nota" && (
-                <div style={{ background: "rgba(255,255,255,0.04)", padding: "16px 20px", opacity: 0.5 }}>
+                <div style={{ background: "rgba(255,255,255,0.04)", padding: "16px 20px" }}>
                   <span style={{ fontSize: 15, fontWeight: 700, color: "white" }}>None of the above</span>
                   <span style={{ fontSize: 13, fontWeight: 700, color: YELLOW, marginLeft: 10 }}>✓ your vote</span>
                 </div>
               )}
+            </div>
+
+            {/* Who has voted */}
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", opacity: 0.35, marginBottom: 10 }}>
+                Votes
+              </div>
+              {eligibleVoterIds.map(pid => {
+                const p = players.find(x => x.id === pid)
+                return (
+                  <div key={pid} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                    <div style={{ width: 7, height: 7, borderRadius: "50%", background: votedPlayerIds.has(pid) ? GREEN : "rgba(255,255,255,0.2)", flexShrink: 0 }} />
+                    <span style={{ fontSize: 15, fontWeight: 700 }}>{p?.name}</span>
+                  </div>
+                )
+              })}
             </div>
           </>
         )}
@@ -472,52 +464,38 @@ export default function Play({ params }) {
         {phase === "results" && (
           <>
             <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 28 }}>
-              {answers.filter(a => !a.skipped).sort((a, b) => b.vote_count - a.vote_count).map(answer => {
-                const author = players.find(p => p.id === answer.player_id)
-                const pts = answer.vote_count
-                const voters = votes
-                  .filter(v => v.answer_id === answer.id)
+              {[...answerGroups].sort((a, b) => b.voteCount - a.voteCount).map(group => {
+                const authors = group.playerIds.map(id => players.find(p => p.id === id)?.name).filter(Boolean)
+                const pts = group.voteCount
+                const groupVoters = votes
+                  .filter(v => group.answerIds.includes(v.answer_id))
                   .map(v => players.find(p => p.id === v.voter_id)?.name)
                   .filter(Boolean)
                 return (
-                  <div key={answer.id} style={{ background: CARD_BG, padding: "16px 20px" }}>
-                    <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: voters.length ? 10 : 0 }}>
-                      <div style={{
-                        background: pts > 0 ? YELLOW : "rgba(255,255,255,0.12)",
-                        color: pts > 0 ? "#000" : "rgba(255,255,255,0.5)",
-                        fontSize: 20,
-                        fontWeight: 900,
-                        minWidth: 44,
-                        textAlign: "center",
-                        padding: "6px 0",
-                        flexShrink: 0,
-                      }}>
-                        {pts > 0 ? `+${pts}` : "–"}
+                  <div key={group.primaryId} style={{ background: CARD_BG, padding: "16px 20px" }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: groupVoters.length ? 10 : 0 }}>
+                      <div style={{ background: pts > 0 ? YELLOW : "rgba(255,255,255,0.12)", color: pts > 0 ? "#000" : "rgba(255,255,255,0.5)", fontSize: 20, fontWeight: 900, minWidth: 44, textAlign: "center", padding: "6px 0", flexShrink: 0 }}>
+                        {pts > 0 ? `+${pts}` : "0"}
                       </div>
                       <div>
-                        <div style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.3 }}>{answer.text}</div>
-                        <div style={{ fontSize: 13, fontWeight: 700, opacity: 0.5, marginTop: 3 }}>{author?.name ?? "?"}</div>
+                        <div style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.3 }}>{group.text}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, opacity: 0.5, marginTop: 3 }}>{authors.join(" & ")}</div>
                       </div>
                     </div>
-                    {voters.length > 0 && (
+                    {groupVoters.length > 0 && (
                       <div style={{ fontSize: 12, fontWeight: 700, opacity: 0.45, marginLeft: 58 }}>
-                        Voted by: {voters.join(", ")}
+                        Voted by: {groupVoters.join(", ")}
                       </div>
                     )}
                   </div>
                 )
               })}
 
-              {/* NOTA result */}
               {notaVoters.length > 0 && (
                 <div style={{ background: CARD_BG, padding: "16px 20px" }}>
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 10 }}>
-                    <div style={{ background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.5)", fontSize: 20, fontWeight: 900, minWidth: 44, textAlign: "center", padding: "6px 0", flexShrink: 0 }}>
-                      –
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.3, opacity: 0.6 }}>None of the above</div>
-                    </div>
+                    <div style={{ background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.5)", fontSize: 20, fontWeight: 900, minWidth: 44, textAlign: "center", padding: "6px 0", flexShrink: 0 }}>–</div>
+                    <div style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.3, opacity: 0.6 }}>None of the above</div>
                   </div>
                   <div style={{ fontSize: 12, fontWeight: 700, opacity: 0.45, marginLeft: 58 }}>
                     Voted by: {notaVoters.join(", ")}
@@ -525,7 +503,6 @@ export default function Play({ params }) {
                 </div>
               )}
 
-              {/* Skippers */}
               {answers.filter(a => a.skipped).length > 0 && (
                 <div style={{ fontSize: 13, opacity: 0.35, fontWeight: 600, marginTop: 4 }}>
                   Skipped: {answers.filter(a => a.skipped).map(a => players.find(p => p.id === a.player_id)?.name).filter(Boolean).join(", ")}
@@ -542,7 +519,7 @@ export default function Play({ params }) {
           </>
         )}
 
-        {/* Scores — shown below during answering/voting */}
+        {/* Scores — answering/voting only */}
         {phase !== "results" && (
           <div style={{ marginTop: "auto", paddingTop: 32 }}>
             <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", opacity: 0.35, marginBottom: 12 }}>

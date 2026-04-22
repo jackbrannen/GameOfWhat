@@ -5,6 +5,75 @@ alter table public.gow_players add column if not exists first_name text;
 alter table public.gow_players add column if not exists last_name text;
 
 -- ============================================================
+-- Allow null answer_id in gow_votes (null = None of the Above)
+-- ============================================================
+alter table public.gow_votes alter column answer_id drop not null;
+
+-- ============================================================
+-- Updated gow_submit_vote: handles NOTA + propagates vote_count
+-- to answers with identical text so both writers earn points
+-- ============================================================
+create or replace function public.gow_submit_vote(
+  p_code        text,
+  p_question_id uuid,
+  p_voter_id    uuid,
+  p_answer_id   uuid
+)
+returns void language plpgsql security definer as $$
+declare
+  g            record;
+  voter_count  int;
+  vote_count   int;
+begin
+  select * into g from public.gow_games where code = p_code for update;
+  if not found or g.phase <> 'play' or g.question_phase <> 'voting' then return; end if;
+  if g.current_question_id <> p_question_id then return; end if;
+
+  insert into public.gow_votes (question_id, voter_id, answer_id)
+  values (p_question_id, p_voter_id, p_answer_id)
+  on conflict (question_id, voter_id) do update set answer_id = excluded.answer_id;
+
+  if p_answer_id is not null then
+    update public.gow_answers
+    set vote_count = (select count(*) from public.gow_votes where answer_id = p_answer_id)
+    where id = p_answer_id;
+
+    -- Propagate same vote_count to answers with identical text
+    update public.gow_answers a_twin
+    set vote_count = (select count(*) from public.gow_votes where answer_id = p_answer_id)
+    from public.gow_answers a_primary
+    where a_primary.id = p_answer_id
+      and a_twin.question_id = p_question_id
+      and a_twin.id <> p_answer_id
+      and lower(trim(a_twin.text)) = lower(trim(a_primary.text))
+      and not a_twin.skipped;
+  end if;
+
+  select count(*) into voter_count
+  from (
+    select author_id as id from public.gow_questions where id = p_question_id
+    union
+    select player_id from public.gow_answers where question_id = p_question_id and not skipped
+  ) voters;
+
+  select count(*) into vote_count
+  from public.gow_votes where question_id = p_question_id;
+
+  if vote_count >= voter_count then
+    update public.gow_players pl
+    set score = pl.score + a.vote_count
+    from public.gow_answers a
+    where a.question_id = p_question_id
+      and a.player_id = pl.id
+      and a.vote_count > 0
+      and not a.skipped;
+
+    update public.gow_games set question_phase = 'results' where code = p_code;
+  end if;
+end;
+$$;
+
+-- ============================================================
 -- Migration: collect questions per-round in between_rounds phase
 -- Run this in the Supabase SQL editor.
 -- ============================================================

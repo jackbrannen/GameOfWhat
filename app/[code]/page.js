@@ -31,6 +31,7 @@ export default function Lobby({ params }) {
   const [lastName, setLastName] = useState("")
   const [username, setUsername] = useState("")
   const [joining, setJoining] = useState(false)
+  const [joinError, setJoinError] = useState("")
   const [rounds, setRounds] = useState("3")
   const [notFound, setNotFound] = useState(false)
 
@@ -87,6 +88,18 @@ export default function Lobby({ params }) {
     const trimmedLast = (savedProfile?.lastName || lastName).trim()
     if (!trimmedUsername || !trimmedFirst || !trimmedLast || joining) return
     setJoining(true)
+    setJoinError("")
+    const { data: existing } = await supabase
+      .from("gow_players")
+      .select("id")
+      .eq("game_code", code)
+      .ilike("name", trimmedUsername)
+      .limit(1)
+    if (existing?.length > 0) {
+      setJoinError("That username is already taken in this game. Please choose another.")
+      setJoining(false)
+      return
+    }
     const newProfile = { firstName: trimmedFirst, lastName: trimmedLast, username: trimmedUsername }
     localStorage.setItem("jackgames:profile", JSON.stringify(newProfile))
     setSavedProfile(newProfile)
@@ -257,6 +270,11 @@ export default function Lobby({ params }) {
           >
             {joining ? "Joining…" : "Join"}
           </button>
+          {joinError && (
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#F04F52", marginTop: 10 }}>
+              {joinError}
+            </div>
+          )}
         </div>
       )}
 
