@@ -554,7 +554,7 @@ export default function Play({ params }) {
                       {isSelected && (
                         <button
                           onClick={handleDeselect}
-                          style={{ background: "rgba(0,0,0,0.3)", color: "#000", fontSize: 22, fontWeight: 900, padding: "18px 24px", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}
+                          style={{ background: "rgba(0,0,0,0.3)", color: YELLOW, fontSize: 22, fontWeight: 900, padding: "18px 24px", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}
                         >
                           ✕
                         </button>
