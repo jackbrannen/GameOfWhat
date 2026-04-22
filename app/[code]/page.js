@@ -197,6 +197,9 @@ export default function Lobby({ params }) {
       {/* Start Game CTA */}
       {canStart && (
         <div style={{ padding: "20px 24px", background: YELLOW }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: "#000", opacity: 0.6, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 10 }}>
+            All players in?
+          </div>
           <button
             onClick={startGame}
             style={{ background: "#000", color: YELLOW, fontSize: 24, fontWeight: 900, padding: "20px", width: "100%", display: "block" }}
