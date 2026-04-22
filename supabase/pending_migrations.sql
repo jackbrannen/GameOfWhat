@@ -1,6 +1,10 @@
 -- ============================================================
 -- Add real name columns to gow_players
 -- ============================================================
+-- ============================================================
+-- Track globally-used prompt words per game
+-- ============================================================
+alter table public.gow_games add column if not exists used_prompts text[] default '{}';
 alter table public.gow_players add column if not exists first_name text;
 alter table public.gow_players add column if not exists last_name text;
 
@@ -204,7 +208,8 @@ begin
     set phase               = 'lobby',
         question_phase      = null,
         current_question_id = null,
-        round_index         = 0
+        round_index         = 0,
+        used_prompts        = '{}'
   where code = p_code;
 end;
 $$;

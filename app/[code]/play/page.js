@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "../../../lib/supabase"
+import { PROMPT_CATEGORIES } from "../../../lib/prompts"
 
 const BG = "#1a1a2e"
 const YELLOW = "#FBDF54"
@@ -30,6 +31,8 @@ export default function Play({ params }) {
   const [resultsAcknowledged, setResultsAcknowledged] = useState(null)
   const [roundQuestion, setRoundQuestion] = useState("")
   const [submittingRoundQuestion, setSubmittingRoundQuestion] = useState(false)
+  const [shownPrompts, setShownPrompts] = useState([])
+  const [promptsPhase, setPromptsPhase] = useState("none")
 
   useEffect(() => {
     const existing = localStorage.getItem(`gow:${code}:playerId`)
@@ -39,7 +42,7 @@ export default function Play({ params }) {
   async function loadState() {
     const { data: gameData } = await supabase
       .from("gow_games")
-      .select("code,phase,round_index,rounds_total,current_question_id,question_phase")
+      .select("code,phase,round_index,rounds_total,current_question_id,question_phase,used_prompts")
       .eq("code", code)
       .single()
     if (!gameData) return
@@ -48,7 +51,7 @@ export default function Play({ params }) {
 
     const { data: playerData } = await supabase
       .from("gow_players")
-      .select("id,name,score,question,created_at")
+      .select("id,name,first_name,score,question,created_at")
       .eq("game_code", code)
       .order("created_at", { ascending: true })
 
@@ -105,6 +108,9 @@ export default function Play({ params }) {
 
   const currentQuestionId = currentQuestion?.id
   useEffect(() => { setMyAnswer(""); changingVoteRef.current = false }, [currentQuestionId])
+
+  const roundIndex = game?.round_index
+  useEffect(() => { setShownPrompts([]); setPromptsPhase("none") }, [roundIndex])
 
   async function submitAnswer(skip = false) {
     if (!currentQuestion || !myPlayerId) return
@@ -163,7 +169,56 @@ export default function Play({ params }) {
     await supabase.from("gow_players").update({ question: trimmed }).eq("id", myPlayerId)
     setSubmittingRoundQuestion(false)
     setRoundQuestion("")
+    setShownPrompts([])
+    setPromptsPhase("none")
     await loadState()
+  }
+
+  async function handleDrawPrompts() {
+    if (promptsPhase === "done") return
+    const isFirst = promptsPhase === "none"
+    const count = isFirst ? 2 : 3
+
+    // Fresh fetch so we see words drawn by other players since last poll
+    const { data: fresh } = await supabase
+      .from("gow_games").select("used_prompts").eq("code", code).single()
+    const globallyUsed = new Set(fresh?.used_prompts ?? [])
+
+    // Categories already used in this session (no repeats across all 5 words)
+    const usedCategories = new Set(shownPrompts.filter(p => !p.isName).map(p => p.category))
+
+    const available = Object.entries(PROMPT_CATEGORIES)
+      .filter(([cat]) => !usedCategories.has(cat))
+      .sort(() => Math.random() - 0.5)
+
+    const newTags = []
+    const newWords = []
+    for (const [category, words] of available) {
+      if (newTags.length >= count) break
+      const pool = words.filter(w => !globallyUsed.has(w))
+      if (!pool.length) continue
+      const word = pool[Math.floor(Math.random() * pool.length)]
+      newTags.push({ word, category, isName: false })
+      newWords.push(word)
+    }
+
+    if (isFirst) {
+      const namedPlayers = players.filter(p => p.first_name || p.name)
+      if (namedPlayers.length) {
+        const pick = namedPlayers[Math.floor(Math.random() * namedPlayers.length)]
+        newTags.splice(Math.floor(Math.random() * (newTags.length + 1)), 0,
+          { word: pick.first_name || pick.name, category: null, isName: true })
+      }
+    }
+
+    if (newWords.length) {
+      await supabase.from("gow_games")
+        .update({ used_prompts: [...Array.from(globallyUsed), ...newWords] })
+        .eq("code", code)
+    }
+
+    setShownPrompts(prev => [...prev, ...newTags])
+    setPromptsPhase(isFirst ? "first" : "done")
   }
 
   async function startNextRound() {
@@ -393,6 +448,41 @@ export default function Play({ params }) {
             >
               {submittingRoundQuestion ? "Submitting…" : "Submit Question"}
             </button>
+
+            {/* Prompt tags */}
+            {shownPrompts.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 20 }}>
+                {shownPrompts.map((p, i) => (
+                  <div key={i} style={{
+                    padding: "7px 14px",
+                    borderRadius: 999,
+                    fontSize: 14,
+                    fontWeight: 700,
+                    background: p.isName ? "rgba(251,223,84,0.12)" : "rgba(255,255,255,0.1)",
+                    color: p.isName ? YELLOW : "white",
+                    border: p.isName ? "1px solid rgba(251,223,84,0.3)" : "1px solid rgba(255,255,255,0.15)",
+                  }}>
+                    {p.word}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Ideas button */}
+            <div style={{ marginTop: shownPrompts.length ? 14 : 20 }}>
+              {promptsPhase !== "done" ? (
+                <button
+                  onClick={handleDrawPrompts}
+                  style={{ background: "transparent", color: "rgba(255,255,255,0.45)", fontSize: 14, fontWeight: 700, padding: "10px 0", border: "none", display: "block" }}
+                >
+                  {promptsPhase === "none" ? "✦ Random ideas" : "✦ 3 more ideas"}
+                </button>
+              ) : (
+                <div style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.25)" }}>
+                  No more ideas for this question
+                </div>
+              )}
+            </div>
           </div>
         )}
 
