@@ -206,34 +206,9 @@ export default function Lobby({ params }) {
         </div>
       )}
 
-      {/* Players */}
-      <div style={{ padding: "28px 24px 0" }}>
-        <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(255,255,255,0.4)", marginBottom: 14 }}>
-          Players
-        </div>
-        <div style={{ background: "rgba(0,0,0,0.22)", padding: "4px 14px 10px", borderTop: "3px solid rgba(255,255,255,0.25)" }}>
-          {players.length === 0 && (
-            <div style={{ fontSize: 14, opacity: 0.35, fontStyle: "italic", paddingTop: 10 }}>No players yet</div>
-          )}
-          {players.map(p => (
-            <div key={p.id} style={{ padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-              <span style={{ fontSize: 17, fontWeight: 700 }}>
-                {p.name}
-                {p.id === myPlayerId && <span style={{ fontSize: 12, fontWeight: 600, opacity: 0.45, marginLeft: 6 }}>you</span>}
-              </span>
-            </div>
-          ))}
-        </div>
-        {players.length < 4 && (
-          <p style={{ fontSize: 13, opacity: 0.4, fontWeight: 600, marginTop: 10 }}>
-            Need at least 4 players to start.
-          </p>
-        )}
-      </div>
-
       {/* Join */}
       {!me && (
-        <div style={{ padding: "28px 24px" }}>
+        <div style={{ padding: "28px 24px 0" }}>
           <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(255,255,255,0.4)", marginBottom: 14 }}>
             Join Game
           </div>
@@ -277,6 +252,31 @@ export default function Lobby({ params }) {
           )}
         </div>
       )}
+
+      {/* Players */}
+      <div style={{ padding: "28px 24px 0" }}>
+        <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(255,255,255,0.4)", marginBottom: 14 }}>
+          Players
+        </div>
+        <div style={{ background: "rgba(0,0,0,0.22)", padding: "4px 14px 10px", borderTop: "3px solid rgba(255,255,255,0.25)" }}>
+          {players.length === 0 && (
+            <div style={{ fontSize: 14, opacity: 0.35, fontStyle: "italic", paddingTop: 10 }}>No players yet</div>
+          )}
+          {players.map(p => (
+            <div key={p.id} style={{ padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+              <span style={{ fontSize: 17, fontWeight: 700 }}>
+                {p.name}
+                {p.id === myPlayerId && <span style={{ fontSize: 12, fontWeight: 600, opacity: 0.45, marginLeft: 6 }}>you</span>}
+              </span>
+            </div>
+          ))}
+        </div>
+        {players.length < 4 && (
+          <p style={{ fontSize: 13, opacity: 0.4, fontWeight: 600, marginTop: 10 }}>
+            Need at least 4 players to start.
+          </p>
+        )}
+      </div>
 
     </div>
   )

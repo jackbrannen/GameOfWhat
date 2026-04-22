@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "../../../lib/supabase"
 
@@ -25,6 +25,7 @@ export default function Play({ params }) {
   const [myVoteId, setMyVoteId] = useState(null)
   const [submittingVote, setSubmittingVote] = useState(false)
   const [selfFlash, setSelfFlash] = useState(false)
+  const changingVoteRef = useRef(false)
   const [resultSnapshot, setResultSnapshot] = useState(null)
   const [resultsAcknowledged, setResultsAcknowledged] = useState(null)
   const [roundQuestion, setRoundQuestion] = useState("")
@@ -75,8 +76,10 @@ export default function Play({ params }) {
           .select("answer_id,voter_id")
           .eq("question_id", gameData.current_question_id)
         setVotes(voteData ?? [])
-        const myVote = (voteData ?? []).find(v => v.voter_id === myPlayerId)
-        setMyVoteId(myVote ? (myVote.answer_id ?? "nota") : null)
+        if (!changingVoteRef.current) {
+          const myVote = (voteData ?? []).find(v => v.voter_id === myPlayerId)
+          setMyVoteId(myVote ? (myVote.answer_id ?? "nota") : null)
+        }
 
         if (gameData.question_phase === "results") {
           setResultSnapshot({
@@ -101,7 +104,7 @@ export default function Play({ params }) {
   }, [code, myPlayerId])
 
   const currentQuestionId = currentQuestion?.id
-  useEffect(() => { setMyAnswer("") }, [currentQuestionId])
+  useEffect(() => { setMyAnswer(""); changingVoteRef.current = false }, [currentQuestionId])
 
   async function submitAnswer(skip = false) {
     if (!currentQuestion || !myPlayerId) return
@@ -117,7 +120,13 @@ export default function Play({ params }) {
     await loadState()
   }
 
+  function handleDeselect() {
+    changingVoteRef.current = true
+    setMyVoteId(null)
+  }
+
   async function submitVote(answerId) {
+    changingVoteRef.current = false
     if (!currentQuestion || !myPlayerId || submittingVote) return
     setSubmittingVote(true)
     setMyVoteId(answerId ?? "nota")
@@ -245,7 +254,7 @@ export default function Play({ params }) {
             {snapNotaVoters.length > 0 && (
               <div style={{ background: CARD_BG, padding: "16px 20px" }}>
                 <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 10 }}>
-                  <div style={{ background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.5)", fontSize: 20, fontWeight: 900, minWidth: 44, textAlign: "center", padding: "6px 0", flexShrink: 0 }}>–</div>
+                  <div style={{ background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.5)", fontSize: 20, fontWeight: 900, minWidth: 44, textAlign: "center", padding: "6px 0", flexShrink: 0 }}>{snapNotaVoters.length}</div>
                   <div style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.3, opacity: 0.6 }}>None of the above</div>
                 </div>
                 <div style={{ fontSize: 12, fontWeight: 700, opacity: 0.45, marginLeft: 58 }}>
@@ -376,7 +385,7 @@ export default function Play({ params }) {
         {allNextQuestionsIn && (
           <button
             onClick={startNextRound}
-            style={{ background: YELLOW, color: "#000", fontSize: 22, fontWeight: 900, padding: "22px", width: "100%", display: "block", marginTop: "auto" }}
+            style={{ background: YELLOW, color: "#000", fontSize: 22, fontWeight: 900, padding: "22px", width: "100%", display: "block", marginTop: 24 }}
           >
             Start Round {game.round_index + 1}
           </button>
@@ -392,8 +401,7 @@ export default function Play({ params }) {
   const hasSubmittedAnswer = !!myAnswerRecord
   const hasSkipped = myAnswerRecord?.skipped
   const eligibleAnswerers = players.filter(p => p.id !== currentQuestion?.author_id)
-  const submittedCount = answers.length
-  const waitingOnCount = eligibleAnswerers.length - submittedCount
+  const waitingOnPlayers = eligibleAnswerers.filter(p => !answers.some(a => a.player_id === p.id))
 
   const answerGroups = answers
     .filter(a => !a.skipped)
@@ -465,7 +473,7 @@ export default function Play({ params }) {
                   Your answer: <span style={{ opacity: 1, color: "white" }}>{hasSkipped ? "(skipped)" : myAnswerRecord?.text}</span>
                 </div>
                 <div style={{ fontSize: 13, fontWeight: 700, opacity: 0.4, marginTop: 16 }}>
-                  Waiting for {waitingOnCount} more {waitingOnCount === 1 ? "player" : "players"}…
+                  Waiting for: {waitingOnPlayers.map(p => p.name).join(", ")}
                 </div>
               </div>
             ) : (
@@ -503,21 +511,22 @@ export default function Play({ params }) {
         {phase === "voting" && (
           <>
             <div style={{ fontSize: 13, fontWeight: 700, opacity: 0.45, marginBottom: 16 }}>
-              {myVoteId ? "Vote cast — waiting for others…" : "Vote for your favorite:"}
+              {myVoteId ? "Vote cast — tap ✕ to change:" : "Vote for your favorite:"}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 }}>
               {answerGroups.map(group => {
                 const isMine = group.playerIds.includes(myPlayerId)
                 const isSelected = group.answerIds.includes(myVoteId)
-                const canVote = !isMine && !myVoteId
+                const canVote = !isMine && (!myVoteId || changingVoteRef.current)
                 return (
                   <div key={group.primaryId}>
                     <button
                       onClick={() => {
+                        if (isSelected) { handleDeselect(); return }
                         if (isMine) { setSelfFlash(true); setTimeout(() => setSelfFlash(false), 500); return }
                         if (canVote) submitVote(group.primaryId)
                       }}
-                      disabled={(!canVote && !isMine) || submittingVote}
+                      disabled={submittingVote}
                       style={{
                         background: isSelected ? YELLOW : isMine && selfFlash ? "rgba(255,80,80,0.25)" : CARD_BG,
                         color: isSelected ? "#000" : "white",
@@ -526,11 +535,14 @@ export default function Play({ params }) {
                         padding: "18px 20px",
                         textAlign: "left",
                         width: "100%",
-                        display: "block",
-                        opacity: myVoteId && !isSelected ? 0.45 : 1,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        opacity: myVoteId && !isSelected && !changingVoteRef.current ? 0.45 : 1,
                       }}
                     >
-                      {group.text}
+                      <span>{group.text}</span>
+                      {isSelected && <span style={{ fontSize: 16, fontWeight: 900, marginLeft: 16, flexShrink: 0 }}>✕</span>}
                     </button>
                     {isMine && (
                       <div style={{ fontSize: 11, fontWeight: 700, color: selfFlash ? RED : "rgba(255,255,255,0.35)", marginTop: 4, marginLeft: 2, transition: "color 150ms" }}>
@@ -541,21 +553,33 @@ export default function Play({ params }) {
                 )
               })}
 
-              {!myVoteId && (
-                <button
-                  onClick={() => submitVote(null)}
-                  disabled={submittingVote}
-                  style={{ background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.5)", fontSize: 15, fontWeight: 700, padding: "16px 20px", textAlign: "left", width: "100%", display: "block", marginTop: 4 }}
-                >
-                  None of the above
-                </button>
-              )}
-              {myVoteId === "nota" && (
-                <div style={{ background: "rgba(255,255,255,0.04)", padding: "16px 20px" }}>
-                  <span style={{ fontSize: 15, fontWeight: 700, color: "white" }}>None of the above</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: YELLOW, marginLeft: 10 }}>✓ your vote</span>
-                </div>
-              )}
+              {(() => {
+                const isNota = myVoteId === "nota"
+                const canVoteNota = !myVoteId || changingVoteRef.current
+                return (
+                  <button
+                    onClick={() => isNota ? handleDeselect() : (canVoteNota ? submitVote(null) : null)}
+                    disabled={submittingVote}
+                    style={{
+                      background: isNota ? YELLOW : "rgba(255,255,255,0.04)",
+                      color: isNota ? "#000" : "rgba(255,255,255,0.5)",
+                      fontSize: 15,
+                      fontWeight: 700,
+                      padding: "16px 20px",
+                      textAlign: "left",
+                      width: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      marginTop: 4,
+                      opacity: myVoteId && !isNota && !changingVoteRef.current ? 0.45 : 1,
+                    }}
+                  >
+                    <span>None of the above</span>
+                    {isNota && <span style={{ fontSize: 16, fontWeight: 900, marginLeft: 16, flexShrink: 0 }}>✕</span>}
+                  </button>
+                )
+              })()}
             </div>
 
             {/* Who has voted */}
