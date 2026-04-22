@@ -25,6 +25,7 @@ export default function Play({ params }) {
   const [myVoteId, setMyVoteId] = useState(null)
   const [submittingVote, setSubmittingVote] = useState(false)
   const [selfFlash, setSelfFlash] = useState(false)
+  const [advances, setAdvances] = useState([])
   const [roundQuestion, setRoundQuestion] = useState("")
   const [submittingRoundQuestion, setSubmittingRoundQuestion] = useState(false)
 
@@ -76,10 +77,16 @@ export default function Play({ params }) {
         const myVote = (voteData ?? []).find(v => v.voter_id === myPlayerId)
         setMyVoteId(myVote ? (myVote.answer_id ?? "nota") : null)
       }
+      const { data: advanceData } = await supabase
+        .from("gow_question_advances")
+        .select("player_id")
+        .eq("question_id", gameData.current_question_id)
+      setAdvances(advanceData ?? [])
     } else {
       setCurrentQuestion(null)
       setAnswers([])
       setVotes([])
+      setAdvances([])
     }
   }
 
@@ -120,8 +127,13 @@ export default function Play({ params }) {
     await loadState()
   }
 
-  async function advanceQuestion() {
-    await supabase.rpc("gow_advance_question", { p_code: code })
+  async function playerAdvance() {
+    if (!currentQuestion || !myPlayerId) return
+    await supabase.rpc("gow_player_advance", {
+      p_code: code,
+      p_question_id: currentQuestion.id,
+      p_player_id: myPlayerId,
+    })
     await loadState()
   }
 
@@ -183,6 +195,8 @@ export default function Play({ params }) {
     [currentQuestion?.author_id, ...answers.filter(a => !a.skipped).map(a => a.player_id)].filter(Boolean)
   ))
   const votedPlayerIds = new Set(votes.map(v => v.voter_id))
+  const advancedPlayerIds = new Set(advances.map(a => a.player_id))
+  const myAdvanced = advancedPlayerIds.has(myPlayerId)
 
   // ── GAME OVER ──────────────────────────────────────────────
   if (game.phase === "finished") {
@@ -510,12 +524,29 @@ export default function Play({ params }) {
               )}
             </div>
 
-            <button
-              onClick={advanceQuestion}
-              style={{ background: YELLOW, color: "#000", fontSize: 20, fontWeight: 900, padding: "20px", width: "100%", display: "block" }}
-            >
-              Next Question
-            </button>
+            {!myAdvanced ? (
+              <button
+                onClick={playerAdvance}
+                style={{ background: YELLOW, color: "#000", fontSize: 20, fontWeight: 900, padding: "20px", width: "100%", display: "block" }}
+              >
+                Next Question
+              </button>
+            ) : (
+              <div style={{ fontSize: 15, fontWeight: 700, opacity: 0.55, marginBottom: 16 }}>
+                Waiting for others to continue…
+              </div>
+            )}
+            <div style={{ marginTop: 16 }}>
+              {eligibleVoterIds.map(pid => {
+                const p = players.find(x => x.id === pid)
+                return (
+                  <div key={pid} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                    <div style={{ width: 7, height: 7, borderRadius: "50%", background: advancedPlayerIds.has(pid) ? GREEN : "rgba(255,255,255,0.2)", flexShrink: 0 }} />
+                    <span style={{ fontSize: 15, fontWeight: 700 }}>{p?.name}</span>
+                  </div>
+                )
+              })}
+            </div>
           </>
         )}
 

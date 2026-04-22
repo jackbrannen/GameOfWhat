@@ -1,4 +1,50 @@
 -- ============================================================
+-- Per-player advance confirmation (replaces single "Next Question")
+-- ============================================================
+create table if not exists public.gow_question_advances (
+  question_id uuid not null references public.gow_questions(id) on delete cascade,
+  player_id   uuid not null references public.gow_players(id) on delete cascade,
+  primary key (question_id, player_id)
+);
+alter table public.gow_question_advances enable row level security;
+create policy "anon all" on public.gow_question_advances for all using (true) with check (true);
+
+create or replace function public.gow_player_advance(
+  p_code        text,
+  p_question_id uuid,
+  p_player_id   uuid
+)
+returns void language plpgsql security definer as $$
+declare
+  g              record;
+  eligible_count int;
+  advance_count  int;
+begin
+  select * into g from public.gow_games where code = p_code for update;
+  if not found or g.phase <> 'play' or g.question_phase <> 'results' then return; end if;
+  if g.current_question_id <> p_question_id then return; end if;
+
+  insert into public.gow_question_advances (question_id, player_id)
+  values (p_question_id, p_player_id)
+  on conflict do nothing;
+
+  select count(*) into eligible_count
+  from (
+    select author_id as id from public.gow_questions where id = p_question_id
+    union
+    select player_id from public.gow_answers where question_id = p_question_id and not skipped
+  ) eligible;
+
+  select count(*) into advance_count
+  from public.gow_question_advances where question_id = p_question_id;
+
+  if advance_count >= eligible_count then
+    perform public.gow_advance_question(p_code);
+  end if;
+end;
+$$;
+
+-- ============================================================
 -- Add real name columns to gow_players
 -- ============================================================
 alter table public.gow_players add column if not exists first_name text;
