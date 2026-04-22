@@ -235,6 +235,27 @@ end;
 $$;
 
 -- ============================================================
+-- Reset game to lobby (clears all round data, scores, questions)
+-- ============================================================
+create or replace function public.gow_reset_game(p_code text)
+returns void language plpgsql security definer as $$
+begin
+  delete from public.gow_votes
+    where question_id in (select id from public.gow_questions where game_code = p_code);
+  delete from public.gow_answers
+    where question_id in (select id from public.gow_questions where game_code = p_code);
+  delete from public.gow_questions where game_code = p_code;
+  update public.gow_players set score = 0, question = null where game_code = p_code;
+  update public.gow_games
+    set phase               = 'lobby',
+        question_phase      = null,
+        current_question_id = null,
+        round_index         = 0
+  where code = p_code;
+end;
+$$;
+
+-- ============================================================
 -- Allow a player to retract their vote during voting phase
 -- ============================================================
 create or replace function public.gow_retract_vote(

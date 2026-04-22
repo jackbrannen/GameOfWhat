@@ -287,6 +287,10 @@ export default function Play({ params }) {
   }
 
   // ── GAME OVER ──────────────────────────────────────────────
+  async function resetGame() {
+    await supabase.rpc("gow_reset_game", { p_code: code })
+  }
+
   if (game.phase === "finished") {
     return (
       <div style={{ minHeight: "100dvh", background: BG, color: "white", padding: "40px 24px" }}>
@@ -307,6 +311,12 @@ export default function Play({ params }) {
             </div>
           </div>
         ))}
+        <button
+          onClick={resetGame}
+          style={{ background: YELLOW, color: "#000", fontSize: 20, fontWeight: 900, padding: "20px", width: "100%", display: "block", marginTop: 40 }}
+        >
+          New Game
+        </button>
       </div>
     )
   }
