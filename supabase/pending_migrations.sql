@@ -3,6 +3,27 @@
 -- Run this in the Supabase SQL editor.
 -- ============================================================
 
+-- Updated gow_start_game:
+-- No longer collects questions upfront. Just moves to between_rounds
+-- so round 1 question collection happens on the same screen as all rounds.
+create or replace function public.gow_start_game(p_code text)
+returns void language plpgsql security definer as $$
+declare
+  g record;
+begin
+  select * into g from public.gow_games where code = p_code for update;
+  if not found or g.phase <> 'lobby' then return; end if;
+
+  update public.gow_players set question = null where game_code = p_code;
+
+  update public.gow_games
+  set phase          = 'between_rounds',
+      question_phase = null,
+      round_index    = 0
+  where code = p_code;
+end;
+$$;
+
 -- Updated gow_advance_question:
 -- Clears player questions when entering between_rounds so players
 -- can submit fresh questions for the next round inline.

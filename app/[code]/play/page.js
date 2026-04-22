@@ -191,29 +191,35 @@ export default function Play({ params }) {
 
     return (
       <div style={{ minHeight: "100dvh", background: BG, color: "white", padding: "40px 24px", display: "flex", flexDirection: "column" }}>
-        <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", opacity: 0.45, marginBottom: 12 }}>
-          Round complete
-        </div>
+        {game.round_index > 0 && (
+          <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", opacity: 0.45, marginBottom: 12 }}>
+            Round {game.round_index} complete
+          </div>
+        )}
         <div style={{ fontSize: "clamp(44px, 12vw, 72px)", fontWeight: 900, lineHeight: 1, marginBottom: 8, whiteSpace: "nowrap" }}>
-          Round {game.round_index}
+          Round {game.round_index + 1}
         </div>
         <div style={{ fontSize: 16, fontWeight: 700, opacity: 0.5, marginBottom: 40 }}>
           of {game.rounds_total}
         </div>
 
-        <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", opacity: 0.45, marginBottom: 16 }}>
-          Scores
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 40 }}>
-          {sortedPlayers.map((p, i) => (
-            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <div style={{ background: i === 0 ? YELLOW : "rgba(255,255,255,0.12)", color: i === 0 ? "#000" : "white", fontSize: 24, fontWeight: 900, minWidth: 56, textAlign: "center", padding: "10px 0" }}>
-                {p.score}
-              </div>
-              <span style={{ fontSize: 20, fontWeight: 700, color: p.id === myPlayerId ? YELLOW : "white" }}>{p.name}</span>
+        {game.round_index > 0 && (
+          <>
+            <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", opacity: 0.45, marginBottom: 16 }}>
+              Scores
             </div>
-          ))}
-        </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 40 }}>
+              {sortedPlayers.map((p, i) => (
+                <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                  <div style={{ background: i === 0 ? YELLOW : "rgba(255,255,255,0.12)", color: i === 0 ? "#000" : "white", fontSize: 24, fontWeight: 900, minWidth: 56, textAlign: "center", padding: "10px 0" }}>
+                    {p.score}
+                  </div>
+                  <span style={{ fontSize: 20, fontWeight: 700, color: p.id === myPlayerId ? YELLOW : "white" }}>{p.name}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
 
         <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", opacity: 0.45, marginBottom: 14 }}>
           Round {game.round_index + 1} Questions
