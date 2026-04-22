@@ -33,6 +33,7 @@ export default function Play({ params }) {
   const [submittingRoundQuestion, setSubmittingRoundQuestion] = useState(false)
   const [shownPrompts, setShownPrompts] = useState([])
   const [promptsPhase, setPromptsPhase] = useState("none")
+  const [gameOverPlayers, setGameOverPlayers] = useState(null)
 
   useEffect(() => {
     const existing = localStorage.getItem(`gow:${code}:playerId`)
@@ -57,6 +58,7 @@ export default function Play({ params }) {
 
     setGame(gameData)
     setPlayers(playerData ?? [])
+    if (gameData.phase === "finished") setGameOverPlayers(p => p ?? playerData ?? [])
 
     if (gameData.current_question_id) {
       const { data: qData } = await supabase
@@ -347,6 +349,7 @@ export default function Play({ params }) {
   }
 
   if (game.phase === "finished") {
+    const finalPlayers = [...(gameOverPlayers ?? players)].sort((a, b) => b.score - a.score)
     return (
       <div style={{ minHeight: "100dvh", background: BG, color: "white", padding: "40px 24px" }}>
         <div style={{ fontSize: "clamp(56px, 16vw, 88px)", fontWeight: 900, lineHeight: 0.9, marginBottom: 32 }}>
@@ -355,7 +358,7 @@ export default function Play({ params }) {
         <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", opacity: 0.5, marginBottom: 16 }}>
           Final Scores
         </div>
-        {sortedPlayers.map((p, i) => (
+        {finalPlayers.map((p, i) => (
           <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
             <div style={{ background: i === 0 ? YELLOW : "rgba(255,255,255,0.12)", color: i === 0 ? "#000" : "white", fontSize: 22, fontWeight: 900, minWidth: 52, textAlign: "center", padding: "8px 0" }}>
               {p.score}
