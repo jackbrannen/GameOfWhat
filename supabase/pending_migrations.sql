@@ -1,4 +1,10 @@
 -- ============================================================
+-- Add real name columns to gow_players
+-- ============================================================
+alter table public.gow_players add column if not exists first_name text;
+alter table public.gow_players add column if not exists last_name text;
+
+-- ============================================================
 -- Migration: collect questions per-round in between_rounds phase
 -- Run this in the Supabase SQL editor.
 -- ============================================================

@@ -26,7 +26,10 @@ export default function Lobby({ params }) {
   const [game, setGame] = useState(null)
   const [players, setPlayers] = useState([])
   const [myPlayerId, setMyPlayerId] = useState(null)
-  const [name, setName] = useState("")
+  const [savedProfile, setSavedProfile] = useState(null)
+  const [firstName, setFirstName] = useState("")
+  const [lastName, setLastName] = useState("")
+  const [username, setUsername] = useState("")
   const [joining, setJoining] = useState(false)
   const [rounds, setRounds] = useState("3")
   const [notFound, setNotFound] = useState(false)
@@ -59,6 +62,16 @@ export default function Lobby({ params }) {
   }, [code])
 
   useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("jackgames:profile") || "null")
+      if (saved?.firstName && saved?.lastName) {
+        setSavedProfile(saved)
+        setUsername(saved.username || "")
+      }
+    } catch {}
+  }, [])
+
+  useEffect(() => {
     loadState()
     const poll = setInterval(loadState, 1500)
     return () => clearInterval(poll)
@@ -69,12 +82,17 @@ export default function Lobby({ params }) {
   }, [game?.phase])
 
   async function join() {
-    const trimmed = name.trim()
-    if (!trimmed || joining) return
+    const trimmedUsername = username.trim()
+    const trimmedFirst = (savedProfile?.firstName || firstName).trim()
+    const trimmedLast = (savedProfile?.lastName || lastName).trim()
+    if (!trimmedUsername || !trimmedFirst || !trimmedLast || joining) return
     setJoining(true)
+    const newProfile = { firstName: trimmedFirst, lastName: trimmedLast, username: trimmedUsername }
+    localStorage.setItem("jackgames:profile", JSON.stringify(newProfile))
+    setSavedProfile(newProfile)
     const { data, error } = await supabase
       .from("gow_players")
-      .insert({ game_code: code, name: trimmed, score: 0 })
+      .insert({ game_code: code, name: trimmedUsername, first_name: trimmedFirst, last_name: trimmedLast, score: 0 })
       .select("id")
       .single()
     if (error) { alert("Failed to join: " + error.message); setJoining(false); return }
@@ -206,17 +224,35 @@ export default function Lobby({ params }) {
           <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(255,255,255,0.4)", marginBottom: 14 }}>
             Join Game
           </div>
+          {!savedProfile && (
+            <>
+              <input
+                value={firstName}
+                onChange={e => setFirstName(e.target.value)}
+                placeholder="First name"
+                maxLength={40}
+                style={{ ...inputStyle, marginBottom: 8 }}
+              />
+              <input
+                value={lastName}
+                onChange={e => setLastName(e.target.value)}
+                placeholder="Last name"
+                maxLength={40}
+                style={{ ...inputStyle, marginBottom: 8 }}
+              />
+            </>
+          )}
           <input
-            value={name}
-            onChange={e => setName(e.target.value)}
+            value={username}
+            onChange={e => setUsername(e.target.value)}
             onKeyDown={e => e.key === "Enter" && join()}
-            placeholder="Your name"
+            placeholder="Username"
             maxLength={40}
             style={inputStyle}
           />
           <button
             onClick={join}
-            disabled={!name.trim() || joining}
+            disabled={!username.trim() || (!savedProfile && (!firstName.trim() || !lastName.trim())) || joining}
             style={{ background: YELLOW, color: "#000", fontSize: 20, fontWeight: 900, padding: "18px", width: "100%", marginTop: 8, display: "block" }}
           >
             {joining ? "Joining…" : "Join"}
