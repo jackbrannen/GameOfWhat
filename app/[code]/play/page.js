@@ -120,9 +120,16 @@ export default function Play({ params }) {
     await loadState()
   }
 
-  function handleDeselect() {
+  async function handleDeselect() {
     changingVoteRef.current = true
     setMyVoteId(null)
+    if (currentQuestion && myPlayerId) {
+      await supabase.rpc("gow_retract_vote", {
+        p_code: code,
+        p_question_id: currentQuestion.id,
+        p_voter_id: myPlayerId,
+      })
+    }
   }
 
   async function submitVote(answerId) {
@@ -204,7 +211,7 @@ export default function Play({ params }) {
       .filter(Boolean)
     const snapSkipped = (snap.answers ?? []).filter(a => a.skipped)
     const stillInResults = game.question_phase === "results" && game.current_question_id === snap.questionId
-    const btnLabel = stillInResults ? "Next Question" : "Continue"
+    const btnLabel = game.phase === "finished" ? "Show Winner" : stillInResults ? "Next Question" : "Continue"
 
     return (
       <div style={{ minHeight: "100dvh", background: BG, color: "white", display: "flex", flexDirection: "column" }}>
@@ -294,7 +301,10 @@ export default function Play({ params }) {
             <div style={{ background: i === 0 ? YELLOW : "rgba(255,255,255,0.12)", color: i === 0 ? "#000" : "white", fontSize: 22, fontWeight: 900, minWidth: 52, textAlign: "center", padding: "8px 0" }}>
               {p.score}
             </div>
-            <span style={{ fontSize: 22, fontWeight: 700 }}>{p.name}</span>
+            <div>
+              <span style={{ fontSize: 22, fontWeight: 700 }}>{p.name}</span>
+              {i === 0 && <span style={{ fontSize: 12, fontWeight: 800, color: YELLOW, marginLeft: 10, textTransform: "uppercase", letterSpacing: "0.1em" }}>Winner!</span>}
+            </div>
           </div>
         ))}
       </div>
@@ -520,30 +530,36 @@ export default function Play({ params }) {
                 const canVote = !isMine && (!myVoteId || changingVoteRef.current)
                 return (
                   <div key={group.primaryId}>
-                    <button
-                      onClick={() => {
-                        if (isSelected) { handleDeselect(); return }
-                        if (isMine) { setSelfFlash(true); setTimeout(() => setSelfFlash(false), 500); return }
-                        if (canVote) submitVote(group.primaryId)
-                      }}
-                      disabled={submittingVote}
-                      style={{
-                        background: isSelected ? YELLOW : isMine && selfFlash ? "rgba(255,80,80,0.25)" : CARD_BG,
-                        color: isSelected ? "#000" : "white",
-                        fontSize: 18,
-                        fontWeight: 700,
-                        padding: "18px 20px",
-                        textAlign: "left",
-                        width: "100%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        opacity: myVoteId && !isSelected && !changingVoteRef.current ? 0.45 : 1,
-                      }}
-                    >
-                      <span>{group.text}</span>
-                      {isSelected && <span style={{ fontSize: 16, fontWeight: 900, marginLeft: 16, flexShrink: 0 }}>✕</span>}
-                    </button>
+                    <div style={{ display: "flex", alignItems: "stretch" }}>
+                      <button
+                        onClick={() => {
+                          if (isMine) { setSelfFlash(true); setTimeout(() => setSelfFlash(false), 500); return }
+                          if (canVote) submitVote(group.primaryId)
+                        }}
+                        disabled={submittingVote || isSelected}
+                        style={{
+                          flex: 1,
+                          background: isSelected ? YELLOW : isMine && selfFlash ? "rgba(255,80,80,0.25)" : CARD_BG,
+                          color: isSelected ? "#000" : "white",
+                          fontSize: 18,
+                          fontWeight: 700,
+                          padding: "18px 20px",
+                          textAlign: "left",
+                          display: "block",
+                          opacity: myVoteId && !isSelected && !changingVoteRef.current ? 0.45 : 1,
+                        }}
+                      >
+                        {group.text}
+                      </button>
+                      {isSelected && (
+                        <button
+                          onClick={handleDeselect}
+                          style={{ background: "rgba(0,0,0,0.3)", color: "#000", fontSize: 22, fontWeight: 900, padding: "18px 24px", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
                     {isMine && (
                       <div style={{ fontSize: 11, fontWeight: 700, color: selfFlash ? RED : "rgba(255,255,255,0.35)", marginTop: 4, marginLeft: 2, transition: "color 150ms" }}>
                         Your answer — you can't vote for yourself
@@ -557,27 +573,33 @@ export default function Play({ params }) {
                 const isNota = myVoteId === "nota"
                 const canVoteNota = !myVoteId || changingVoteRef.current
                 return (
-                  <button
-                    onClick={() => isNota ? handleDeselect() : (canVoteNota ? submitVote(null) : null)}
-                    disabled={submittingVote}
-                    style={{
-                      background: isNota ? YELLOW : "rgba(255,255,255,0.04)",
-                      color: isNota ? "#000" : "rgba(255,255,255,0.5)",
-                      fontSize: 15,
-                      fontWeight: 700,
-                      padding: "16px 20px",
-                      textAlign: "left",
-                      width: "100%",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      marginTop: 4,
-                      opacity: myVoteId && !isNota && !changingVoteRef.current ? 0.45 : 1,
-                    }}
-                  >
-                    <span>None of the above</span>
-                    {isNota && <span style={{ fontSize: 16, fontWeight: 900, marginLeft: 16, flexShrink: 0 }}>✕</span>}
-                  </button>
+                  <div style={{ display: "flex", alignItems: "stretch", marginTop: 4 }}>
+                    <button
+                      onClick={() => { if (canVoteNota && !isNota) submitVote(null) }}
+                      disabled={submittingVote || isNota}
+                      style={{
+                        flex: 1,
+                        background: isNota ? YELLOW : "rgba(255,255,255,0.04)",
+                        color: isNota ? "#000" : "rgba(255,255,255,0.5)",
+                        fontSize: 15,
+                        fontWeight: 700,
+                        padding: "16px 20px",
+                        textAlign: "left",
+                        display: "block",
+                        opacity: myVoteId && !isNota && !changingVoteRef.current ? 0.45 : 1,
+                      }}
+                    >
+                      None of the above
+                    </button>
+                    {isNota && (
+                      <button
+                        onClick={handleDeselect}
+                        style={{ background: "rgba(0,0,0,0.3)", color: "#000", fontSize: 22, fontWeight: 900, padding: "16px 24px", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
                 )
               })()}
             </div>

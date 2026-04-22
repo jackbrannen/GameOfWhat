@@ -233,3 +233,24 @@ begin
   where code = p_code;
 end;
 $$;
+
+-- ============================================================
+-- Allow a player to retract their vote during voting phase
+-- ============================================================
+create or replace function public.gow_retract_vote(
+  p_code        text,
+  p_question_id uuid,
+  p_voter_id    uuid
+)
+returns void language plpgsql security definer as $$
+declare
+  g record;
+begin
+  select * into g from public.gow_games where code = p_code for update;
+  if not found or g.phase <> 'play' or g.question_phase <> 'voting' then return; end if;
+  if g.current_question_id <> p_question_id then return; end if;
+
+  delete from public.gow_votes
+  where question_id = p_question_id and voter_id = p_voter_id;
+end;
+$$;
