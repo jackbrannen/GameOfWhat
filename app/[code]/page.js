@@ -127,7 +127,9 @@ export default function Lobby({ params }) {
     )
   }
 
-  const allQuestionsIn = players.length >= 4 && players.every(p => p.question)
+  const allQuestionsIn = game?.round_index === 0
+    ? players.length >= 4 && players.some(p => p.question)
+    : players.length >= 4 && players.every(p => p.question)
   const myQuestionSubmitted = !!me?.question
 
   return (
