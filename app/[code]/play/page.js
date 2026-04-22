@@ -25,7 +25,8 @@ export default function Play({ params }) {
   const [myVoteId, setMyVoteId] = useState(null)
   const [submittingVote, setSubmittingVote] = useState(false)
   const [selfFlash, setSelfFlash] = useState(false)
-  const [advances, setAdvances] = useState([])
+  const [resultSnapshot, setResultSnapshot] = useState(null)
+  const [resultsAcknowledged, setResultsAcknowledged] = useState(null)
   const [roundQuestion, setRoundQuestion] = useState("")
   const [submittingRoundQuestion, setSubmittingRoundQuestion] = useState(false)
 
@@ -76,17 +77,20 @@ export default function Play({ params }) {
         setVotes(voteData ?? [])
         const myVote = (voteData ?? []).find(v => v.voter_id === myPlayerId)
         setMyVoteId(myVote ? (myVote.answer_id ?? "nota") : null)
+
+        if (gameData.question_phase === "results") {
+          setResultSnapshot({
+            questionId: gameData.current_question_id,
+            question: qData,
+            answers: answerData ?? [],
+            votes: voteData ?? [],
+          })
+        }
       }
-      const { data: advanceData } = await supabase
-        .from("gow_question_advances")
-        .select("player_id")
-        .eq("question_id", gameData.current_question_id)
-      setAdvances(advanceData ?? [])
     } else {
       setCurrentQuestion(null)
       setAnswers([])
       setVotes([])
-      setAdvances([])
     }
   }
 
@@ -127,13 +131,12 @@ export default function Play({ params }) {
     await loadState()
   }
 
-  async function playerAdvance() {
-    if (!currentQuestion || !myPlayerId) return
-    await supabase.rpc("gow_player_advance", {
-      p_code: code,
-      p_question_id: currentQuestion.id,
-      p_player_id: myPlayerId,
-    })
+  async function handleAdvanceFromResults() {
+    const snapId = resultSnapshot?.questionId
+    setResultsAcknowledged(snapId)
+    if (game?.question_phase === "results") {
+      await supabase.rpc("gow_advance_question", { p_code: code })
+    }
     await loadState()
   }
 
@@ -161,42 +164,111 @@ export default function Play({ params }) {
   }
 
   const me = players.find(p => p.id === myPlayerId)
-  const questionAuthor = players.find(p => p.id === currentQuestion?.author_id)
-  const isQuestionAuthor = myPlayerId === currentQuestion?.author_id
   const phase = game.question_phase
-  const myAnswerRecord = answers.find(a => a.player_id === myPlayerId)
-  const hasSubmittedAnswer = !!myAnswerRecord
-  const hasSkipped = myAnswerRecord?.skipped
-  const eligibleAnswerers = players.filter(p => p.id !== currentQuestion?.author_id)
-  const submittedCount = answers.length
-  const waitingOnCount = eligibleAnswerers.length - submittedCount
   const sortedPlayers = [...players].sort((a, b) => b.score - a.score)
 
-  const notaVoters = votes.filter(v => v.answer_id === null).map(v => players.find(p => p.id === v.voter_id)?.name).filter(Boolean)
+  // Show frozen results if player hasn't acknowledged the last results screen
+  const showingResults = !!resultSnapshot && resultSnapshot.questionId !== resultsAcknowledged
 
-  // Group answers with identical text (case-insensitive) for display and scoring
-  const answerGroups = answers
-    .filter(a => !a.skipped)
-    .reduce((groups, answer) => {
-      const key = (answer.text || "").trim().toLowerCase()
-      const existing = groups.find(g => g.key === key)
-      if (existing) {
-        existing.playerIds.push(answer.player_id)
-        existing.answerIds.push(answer.id)
-        existing.voteCount = Math.max(existing.voteCount, answer.vote_count)
-      } else {
-        groups.push({ key, primaryId: answer.id, answerIds: [answer.id], text: answer.text, playerIds: [answer.player_id], voteCount: answer.vote_count })
-      }
-      return groups
-    }, [])
+  // ── FROZEN / LIVE RESULTS ────────────────────────────────────
+  if (showingResults) {
+    const snap = resultSnapshot
+    const snapQuestion = snap.question
+    const snapQuestionAuthor = players.find(p => p.id === snapQuestion?.author_id)
+    const snapAnswerGroups = (snap.answers ?? [])
+      .filter(a => !a.skipped)
+      .reduce((groups, answer) => {
+        const key = (answer.text || "").trim().toLowerCase()
+        const existing = groups.find(g => g.key === key)
+        if (existing) {
+          existing.playerIds.push(answer.player_id)
+          existing.answerIds.push(answer.id)
+          existing.voteCount = Math.max(existing.voteCount, answer.vote_count)
+        } else {
+          groups.push({ key, primaryId: answer.id, answerIds: [answer.id], text: answer.text, playerIds: [answer.player_id], voteCount: answer.vote_count })
+        }
+        return groups
+      }, [])
+    const snapNotaVoters = (snap.votes ?? [])
+      .filter(v => v.answer_id === null)
+      .map(v => players.find(p => p.id === v.voter_id)?.name)
+      .filter(Boolean)
+    const snapSkipped = (snap.answers ?? []).filter(a => a.skipped)
+    const stillInResults = game.question_phase === "results" && game.current_question_id === snap.questionId
+    const btnLabel = stillInResults ? "Next Question" : "Continue"
 
-  // Who is eligible to vote and who already has
-  const eligibleVoterIds = Array.from(new Set(
-    [currentQuestion?.author_id, ...answers.filter(a => !a.skipped).map(a => a.player_id)].filter(Boolean)
-  ))
-  const votedPlayerIds = new Set(votes.map(v => v.voter_id))
-  const advancedPlayerIds = new Set(advances.map(a => a.player_id))
-  const myAdvanced = advancedPlayerIds.has(myPlayerId)
+    return (
+      <div style={{ minHeight: "100dvh", background: BG, color: "white", display: "flex", flexDirection: "column" }}>
+        <div style={{ padding: "14px 20px", background: "rgba(0,0,0,0.3)", flexShrink: 0 }}>
+          <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", opacity: 0.4 }}>
+            Round {(game.round_index ?? 0) + 1} of {game.rounds_total ?? 3}
+          </div>
+        </div>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "28px 20px", paddingBottom: "max(28px, env(safe-area-inset-bottom, 28px))" }}>
+          {snapQuestion && (
+            <div style={{ marginBottom: 28 }}>
+              <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", opacity: 0.45, marginBottom: 10 }}>
+                {snapQuestionAuthor ? `${snapQuestionAuthor.name}'s question` : "Question"}
+              </div>
+              <div style={{ fontSize: "clamp(22px, 6vw, 32px)", fontWeight: 800, lineHeight: 1.25 }}>
+                {snapQuestion.text}
+              </div>
+            </div>
+          )}
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 28 }}>
+            {[...snapAnswerGroups].sort((a, b) => b.voteCount - a.voteCount).map(group => {
+              const authors = group.playerIds.map(id => players.find(p => p.id === id)?.name).filter(Boolean)
+              const pts = group.voteCount
+              const groupVoters = (snap.votes ?? [])
+                .filter(v => group.answerIds.includes(v.answer_id))
+                .map(v => players.find(p => p.id === v.voter_id)?.name)
+                .filter(Boolean)
+              return (
+                <div key={group.primaryId} style={{ background: CARD_BG, padding: "16px 20px" }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: groupVoters.length ? 10 : 0 }}>
+                    <div style={{ background: pts > 0 ? YELLOW : "rgba(255,255,255,0.12)", color: pts > 0 ? "#000" : "rgba(255,255,255,0.5)", fontSize: 20, fontWeight: 900, minWidth: 44, textAlign: "center", padding: "6px 0", flexShrink: 0 }}>
+                      {pts > 0 ? `+${pts}` : "0"}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.3 }}>{group.text}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, opacity: 0.5, marginTop: 3 }}>{authors.join(" & ")}</div>
+                    </div>
+                  </div>
+                  {groupVoters.length > 0 && (
+                    <div style={{ fontSize: 12, fontWeight: 700, opacity: 0.45, marginLeft: 58 }}>
+                      Voted by: {groupVoters.join(", ")}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+            {snapNotaVoters.length > 0 && (
+              <div style={{ background: CARD_BG, padding: "16px 20px" }}>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 10 }}>
+                  <div style={{ background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.5)", fontSize: 20, fontWeight: 900, minWidth: 44, textAlign: "center", padding: "6px 0", flexShrink: 0 }}>–</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.3, opacity: 0.6 }}>None of the above</div>
+                </div>
+                <div style={{ fontSize: 12, fontWeight: 700, opacity: 0.45, marginLeft: 58 }}>
+                  Voted by: {snapNotaVoters.join(", ")}
+                </div>
+              </div>
+            )}
+            {snapSkipped.length > 0 && (
+              <div style={{ fontSize: 13, opacity: 0.35, fontWeight: 600, marginTop: 4 }}>
+                Skipped: {snapSkipped.map(a => players.find(p => p.id === a.player_id)?.name).filter(Boolean).join(", ")}
+              </div>
+            )}
+          </div>
+          <button
+            onClick={handleAdvanceFromResults}
+            style={{ background: YELLOW, color: "#000", fontSize: 20, fontWeight: 900, padding: "20px", width: "100%", display: "block" }}
+          >
+            {btnLabel}
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   // ── GAME OVER ──────────────────────────────────────────────
   if (game.phase === "finished") {
@@ -314,6 +386,36 @@ export default function Play({ params }) {
   }
 
   // ── PLAY ──────────────────────────────────────────────────
+  const questionAuthor = players.find(p => p.id === currentQuestion?.author_id)
+  const isQuestionAuthor = myPlayerId === currentQuestion?.author_id
+  const myAnswerRecord = answers.find(a => a.player_id === myPlayerId)
+  const hasSubmittedAnswer = !!myAnswerRecord
+  const hasSkipped = myAnswerRecord?.skipped
+  const eligibleAnswerers = players.filter(p => p.id !== currentQuestion?.author_id)
+  const submittedCount = answers.length
+  const waitingOnCount = eligibleAnswerers.length - submittedCount
+
+  const answerGroups = answers
+    .filter(a => !a.skipped)
+    .reduce((groups, answer) => {
+      const key = (answer.text || "").trim().toLowerCase()
+      const existing = groups.find(g => g.key === key)
+      if (existing) {
+        existing.playerIds.push(answer.player_id)
+        existing.answerIds.push(answer.id)
+        existing.voteCount = Math.max(existing.voteCount, answer.vote_count)
+      } else {
+        groups.push({ key, primaryId: answer.id, answerIds: [answer.id], text: answer.text, playerIds: [answer.player_id], voteCount: answer.vote_count })
+      }
+      return groups
+    }, [])
+
+  const eligibleVoterIds = Array.from(new Set(
+    [currentQuestion?.author_id, ...answers.filter(a => !a.skipped).map(a => a.player_id)].filter(Boolean)
+  ))
+  const votedPlayerIds = new Set(votes.map(v => v.voter_id))
+  const notaVoters = votes.filter(v => v.answer_id === null).map(v => players.find(p => p.id === v.voter_id)?.name).filter(Boolean)
+
   return (
     <div style={{ minHeight: "100dvh", background: BG, color: "white", display: "flex", flexDirection: "column" }}>
 
@@ -474,84 +576,8 @@ export default function Play({ params }) {
           </>
         )}
 
-        {/* RESULTS PHASE */}
-        {phase === "results" && (
-          <>
-            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 28 }}>
-              {[...answerGroups].sort((a, b) => b.voteCount - a.voteCount).map(group => {
-                const authors = group.playerIds.map(id => players.find(p => p.id === id)?.name).filter(Boolean)
-                const pts = group.voteCount
-                const groupVoters = votes
-                  .filter(v => group.answerIds.includes(v.answer_id))
-                  .map(v => players.find(p => p.id === v.voter_id)?.name)
-                  .filter(Boolean)
-                return (
-                  <div key={group.primaryId} style={{ background: CARD_BG, padding: "16px 20px" }}>
-                    <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: groupVoters.length ? 10 : 0 }}>
-                      <div style={{ background: pts > 0 ? YELLOW : "rgba(255,255,255,0.12)", color: pts > 0 ? "#000" : "rgba(255,255,255,0.5)", fontSize: 20, fontWeight: 900, minWidth: 44, textAlign: "center", padding: "6px 0", flexShrink: 0 }}>
-                        {pts > 0 ? `+${pts}` : "0"}
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.3 }}>{group.text}</div>
-                        <div style={{ fontSize: 13, fontWeight: 700, opacity: 0.5, marginTop: 3 }}>{authors.join(" & ")}</div>
-                      </div>
-                    </div>
-                    {groupVoters.length > 0 && (
-                      <div style={{ fontSize: 12, fontWeight: 700, opacity: 0.45, marginLeft: 58 }}>
-                        Voted by: {groupVoters.join(", ")}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-
-              {notaVoters.length > 0 && (
-                <div style={{ background: CARD_BG, padding: "16px 20px" }}>
-                  <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 10 }}>
-                    <div style={{ background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.5)", fontSize: 20, fontWeight: 900, minWidth: 44, textAlign: "center", padding: "6px 0", flexShrink: 0 }}>–</div>
-                    <div style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.3, opacity: 0.6 }}>None of the above</div>
-                  </div>
-                  <div style={{ fontSize: 12, fontWeight: 700, opacity: 0.45, marginLeft: 58 }}>
-                    Voted by: {notaVoters.join(", ")}
-                  </div>
-                </div>
-              )}
-
-              {answers.filter(a => a.skipped).length > 0 && (
-                <div style={{ fontSize: 13, opacity: 0.35, fontWeight: 600, marginTop: 4 }}>
-                  Skipped: {answers.filter(a => a.skipped).map(a => players.find(p => p.id === a.player_id)?.name).filter(Boolean).join(", ")}
-                </div>
-              )}
-            </div>
-
-            {!myAdvanced ? (
-              <button
-                onClick={playerAdvance}
-                style={{ background: YELLOW, color: "#000", fontSize: 20, fontWeight: 900, padding: "20px", width: "100%", display: "block" }}
-              >
-                Next Question
-              </button>
-            ) : (
-              <div style={{ fontSize: 15, fontWeight: 700, opacity: 0.55, marginBottom: 16 }}>
-                Waiting for others to continue…
-              </div>
-            )}
-            <div style={{ marginTop: 16 }}>
-              {eligibleVoterIds.map(pid => {
-                const p = players.find(x => x.id === pid)
-                return (
-                  <div key={pid} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                    <div style={{ width: 7, height: 7, borderRadius: "50%", background: advancedPlayerIds.has(pid) ? GREEN : "rgba(255,255,255,0.2)", flexShrink: 0 }} />
-                    <span style={{ fontSize: 15, fontWeight: 700 }}>{p?.name}</span>
-                  </div>
-                )
-              })}
-            </div>
-          </>
-        )}
-
         {/* Scores — answering/voting only */}
-        {phase !== "results" && (
+        {(phase === "answering" || phase === "voting") && (
           <div style={{ marginTop: "auto", paddingTop: 32 }}>
             <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", opacity: 0.35, marginBottom: 12 }}>
               Scores
