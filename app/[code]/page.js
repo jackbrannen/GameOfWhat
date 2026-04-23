@@ -81,6 +81,7 @@ export default function Lobby({ params }) {
   useEffect(() => {
     const saved = loadProfile()
     if (saved) {
+      saveProfile(saved)
       setSavedProfile(saved)
       setUsername(saved.username || "")
     }
