@@ -543,7 +543,7 @@ export default function Play({ params }) {
               {promptsPhase !== "done" ? (
                 <button
                   onClick={handleDrawPrompts}
-                  style={{ background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.6)", fontSize: 14, fontWeight: 700, padding: "12px 18px", display: "block", width: "100%" }}
+                  style={{ background: "rgba(255,255,255,0.18)", color: "white", fontSize: 15, fontWeight: 800, padding: "14px 18px", display: "block", width: "100%" }}
                 >
                   {promptsPhase === "none" ? "✦ Random ideas" : "✦ 3 more ideas"}
                 </button>

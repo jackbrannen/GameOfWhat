@@ -7,6 +7,22 @@ import { supabase } from "../../lib/supabase"
 const BG = "#1a1a2e"
 const YELLOW = "#FBDF54"
 
+function loadProfile() {
+  try {
+    const local = JSON.parse(localStorage.getItem("jackgames:profile") || "null")
+    if (local?.firstName && local?.lastName) return local
+    const match = document.cookie.match(/(?:^|;\s*)jackgames_profile=([^;]*)/)
+    if (match) return JSON.parse(decodeURIComponent(match[1]))
+  } catch {}
+  return null
+}
+
+function saveProfile(profile) {
+  const json = JSON.stringify(profile)
+  localStorage.setItem("jackgames:profile", json)
+  document.cookie = `jackgames_profile=${encodeURIComponent(json)}; domain=.jackbrannen.com; max-age=31536000; path=/; SameSite=Lax`
+}
+
 const inputStyle = {
   background: "rgba(255,255,255,0.1)",
   color: "white",
@@ -63,13 +79,11 @@ export default function Lobby({ params }) {
   }, [code])
 
   useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem("jackgames:profile") || "null")
-      if (saved?.firstName && saved?.lastName) {
-        setSavedProfile(saved)
-        setUsername(saved.username || "")
-      }
-    } catch {}
+    const saved = loadProfile()
+    if (saved) {
+      setSavedProfile(saved)
+      setUsername(saved.username || "")
+    }
   }, [])
 
   useEffect(() => {
@@ -101,7 +115,7 @@ export default function Lobby({ params }) {
       return
     }
     const newProfile = { firstName: trimmedFirst, lastName: trimmedLast, username: trimmedUsername }
-    localStorage.setItem("jackgames:profile", JSON.stringify(newProfile))
+    saveProfile(newProfile)
     setSavedProfile(newProfile)
     const { data, error } = await supabase
       .from("gow_players")
@@ -170,7 +184,7 @@ export default function Lobby({ params }) {
 
       {/* Rounds selector */}
       <div style={{ padding: "16px 24px", background: "rgba(0,0,0,0.2)", display: "flex", alignItems: "center", gap: 16 }}>
-        <span style={{ fontSize: 16, fontWeight: 800, color: "white" }}>Rounds</span>
+        <span style={{ fontSize: 16, fontWeight: 800, color: "white" }}>Number of Rounds:</span>
         <div style={{ display: "flex", gap: 6 }}>
           {[1,2,3,4,5].map(v => (
             <button
@@ -237,7 +251,7 @@ export default function Lobby({ params }) {
             value={username}
             onChange={e => setUsername(e.target.value)}
             onKeyDown={e => e.key === "Enter" && join()}
-            placeholder="Username"
+            placeholder="Display Name"
             maxLength={40}
             style={inputStyle}
           />
