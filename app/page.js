@@ -185,7 +185,7 @@ export default function Home() {
             style={{
               flex: 1,
               minWidth: 0,
-              background: "rgba(255,255,255,0.1)",
+              background: "rgba(255,255,255,0.15)",
               border: "none",
               color: "white",
               fontSize: 18,
@@ -199,7 +199,7 @@ export default function Home() {
           <button
             onClick={onJoin}
             style={{
-              background: "rgba(255,255,255,0.1)",
+              background: "rgba(255,255,255,0.15)",
               color: "white",
               fontSize: 18,
               fontWeight: 900,

@@ -9,7 +9,7 @@ const BG = "#1a1a2e"
 const YELLOW = "#FBDF54"
 const GREEN = "#12BAAA"
 const RED = "#F04F52"
-const CARD_BG = "rgba(255,255,255,0.06)"
+const CARD_BG = "rgba(255,255,255,0.10)"
 
 function pickRandWord() {
   const all = Object.values(PROMPT_CATEGORIES).flat()
@@ -227,8 +227,8 @@ export default function Play({ params }) {
   }
 
   async function submitVote(answerId) {
-    changingVoteRef.current = false
     if (!currentQuestion || !myPlayerId || submittingVote) return
+    changingVoteRef.current = true
     setSubmittingVote(true)
     setMyVoteId(answerId ?? "nota")
     await supabase.rpc("gow_submit_vote", {
@@ -239,6 +239,7 @@ export default function Play({ params }) {
     })
     setSubmittingVote(false)
     await loadState()
+    changingVoteRef.current = false
   }
 
   async function handleAdvanceFromResults() {
@@ -445,8 +446,8 @@ export default function Play({ params }) {
           Final Scores
         </div>
         {finalPlayers.map((p, i) => (
-          <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-            <div style={{ background: i === 0 ? YELLOW : "rgba(255,255,255,0.12)", color: i === 0 ? "#000" : "white", fontSize: 22, fontWeight: 900, minWidth: 52, textAlign: "center", padding: "8px 0" }}>
+          <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.12)" }}>
+            <div style={{ background: i === 0 ? YELLOW : "rgba(255,255,255,0.16)", color: i === 0 ? "#000" : "white", fontSize: 22, fontWeight: 900, minWidth: 52, textAlign: "center", padding: "8px 0" }}>
               {p.score}
             </div>
             <div>
@@ -492,7 +493,7 @@ export default function Play({ params }) {
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 40 }}>
               {sortedPlayers.map((p, i) => (
                 <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                  <div style={{ background: i === 0 ? YELLOW : "rgba(255,255,255,0.12)", color: i === 0 ? "#000" : "white", fontSize: 24, fontWeight: 900, minWidth: 56, textAlign: "center", padding: "10px 0" }}>
+                  <div style={{ background: i === 0 ? YELLOW : "rgba(255,255,255,0.16)", color: i === 0 ? "#000" : "white", fontSize: 24, fontWeight: 900, minWidth: 56, textAlign: "center", padding: "10px 0" }}>
                     {p.score}
                   </div>
                   <span style={{ fontSize: 20, fontWeight: 700, color: p.id === myPlayerId ? YELLOW : "white" }}>{p.name}</span>
@@ -505,9 +506,9 @@ export default function Play({ params }) {
         <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", opacity: 0.45, marginBottom: 14 }}>
           Round {game.round_index + 1} Questions
         </div>
-        <div style={{ background: "rgba(0,0,0,0.22)", padding: "4px 14px 10px", borderTop: "3px solid rgba(255,255,255,0.25)", marginBottom: 20 }}>
+        <div style={{ background: "rgba(0,0,0,0.28)", padding: "4px 14px 10px", borderTop: "3px solid rgba(255,255,255,0.30)", marginBottom: 20 }}>
           {players.map(p => (
-            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.12)" }}>
               <div style={{ width: 7, height: 7, borderRadius: "50%", background: p.question ? GREEN : "rgba(255,255,255,0.2)", flexShrink: 0 }} />
               <span style={{ fontSize: 17, fontWeight: 700, flex: 1 }}>
                 {p.name}
@@ -528,7 +529,7 @@ export default function Play({ params }) {
               onKeyDown={e => e.key === "Enter" && submitRoundQuestion()}
               placeholder="Write a question for everyone…"
               maxLength={200}
-              style={{ background: "rgba(255,255,255,0.1)", color: "white", fontSize: 20, padding: "16px 18px", width: "100%", display: "block", border: "none", outline: "none", boxSizing: "border-box" }}
+              style={{ background: "rgba(255,255,255,0.15)", color: "white", fontSize: 20, padding: "16px 18px", width: "100%", display: "block", border: "none", outline: "none", boxSizing: "border-box" }}
             />
             <button
               onClick={submitRoundQuestion}
@@ -696,7 +697,7 @@ export default function Play({ params }) {
                   <button
                     onClick={() => submitAnswer(true)}
                     disabled={submittingAnswer}
-                    style={{ background: "rgba(255,255,255,0.1)", color: "white", fontSize: 15, fontWeight: 700, padding: "16px 20px", flexShrink: 0 }}
+                    style={{ background: "rgba(255,255,255,0.15)", color: "white", fontSize: 15, fontWeight: 700, padding: "16px 20px", flexShrink: 0 }}
                   >
                     Skip
                   </button>
@@ -768,7 +769,7 @@ export default function Play({ params }) {
                       disabled={submittingVote || isNota}
                       style={{
                         flex: 1,
-                        background: isNota ? YELLOW : "rgba(255,255,255,0.04)",
+                        background: isNota ? YELLOW : "rgba(255,255,255,0.09)",
                         color: isNota ? "#000" : "rgba(255,255,255,0.5)",
                         fontSize: 15,
                         fontWeight: 700,
@@ -801,7 +802,7 @@ export default function Play({ params }) {
               {eligibleVoterIds.map(pid => {
                 const p = players.find(x => x.id === pid)
                 return (
-                  <div key={pid} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                  <div key={pid} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid rgba(255,255,255,0.10)" }}>
                     <div style={{ width: 7, height: 7, borderRadius: "50%", background: votedPlayerIds.has(pid) ? GREEN : "rgba(255,255,255,0.2)", flexShrink: 0 }} />
                     <span style={{ fontSize: 15, fontWeight: 700 }}>{p?.name}</span>
                   </div>
@@ -818,8 +819,8 @@ export default function Play({ params }) {
               Scores
             </div>
             {sortedPlayers.map(p => (
-              <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                <div style={{ background: "rgba(255,255,255,0.1)", fontSize: 18, fontWeight: 900, minWidth: 40, textAlign: "center", padding: "4px 0", color: "white" }}>
+              <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.10)" }}>
+                <div style={{ background: "rgba(255,255,255,0.15)", fontSize: 18, fontWeight: 900, minWidth: 40, textAlign: "center", padding: "4px 0", color: "white" }}>
                   {p.score}
                 </div>
                 <span style={{ fontSize: 16, fontWeight: 700, color: p.id === myPlayerId ? YELLOW : "white" }}>{p.name}</span>
