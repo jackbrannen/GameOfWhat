@@ -11,6 +11,21 @@ const GREEN = "#12BAAA"
 const RED = "#F04F52"
 const CARD_BG = "rgba(255,255,255,0.06)"
 
+function pickRandWord() {
+  const all = Object.values(PROMPT_CATEGORIES).flat()
+  return all[Math.floor(Math.random() * all.length)]
+}
+const Q_TEMPLATES = [
+  w => `What would you do with ${w}?`,
+  w => `What's the best thing about ${w}?`,
+  w => `How would you explain ${w} to a five-year-old?`,
+  w => `What's the worst way to handle ${w}?`,
+  w => `What would ${w} say if it could talk?`,
+]
+function pickRandQuestion() {
+  return Q_TEMPLATES[Math.floor(Math.random() * Q_TEMPLATES.length)](pickRandWord())
+}
+
 export default function Play({ params }) {
   const router = useRouter()
   const code = useMemo(() => params.code.toUpperCase(), [params.code])
@@ -27,6 +42,8 @@ export default function Play({ params }) {
   const [submittingVote, setSubmittingVote] = useState(false)
   const [selfFlash, setSelfFlash] = useState(false)
   const changingVoteRef = useRef(false)
+  const botIdsRef = useRef([])
+  const botActionsRef = useRef(new Set())
   const [resultSnapshot, setResultSnapshot] = useState(null)
   const [resultsAcknowledged, setResultsAcknowledged] = useState(null)
   const [roundQuestion, setRoundQuestion] = useState("")
@@ -38,6 +55,10 @@ export default function Play({ params }) {
   useEffect(() => {
     const existing = localStorage.getItem(`gow:${code}:playerId`)
     if (existing) setMyPlayerId(existing)
+    try {
+      const bots = localStorage.getItem(`gow:${code}:botIds`)
+      if (bots) botIdsRef.current = JSON.parse(bots)
+    } catch {}
   }, [code])
 
   async function loadState() {
@@ -113,6 +134,71 @@ export default function Play({ params }) {
 
   const roundIndex = game?.round_index
   useEffect(() => { setShownPrompts([]); setPromptsPhase("none") }, [roundIndex])
+
+  // ── DUMMY GAME AUTOMATION ─────────────────────────────────
+
+  // Pre-fill answer field
+  useEffect(() => {
+    if (!botIdsRef.current.length || game?.question_phase !== "answering" || !currentQuestion) return
+    if (myPlayerId === currentQuestion.author_id) return
+    if (answers.some(a => a.player_id === myPlayerId)) return
+    setMyAnswer(prev => prev || pickRandWord())
+  }, [currentQuestion?.id, game?.question_phase])
+
+  // Pre-fill round question field
+  useEffect(() => {
+    if (!botIdsRef.current.length || game?.phase !== "between_rounds") return
+    setRoundQuestion(prev => prev || pickRandQuestion())
+  }, [roundIndex, game?.phase])
+
+  // Auto-submit bot answers
+  useEffect(() => {
+    if (!botIdsRef.current.length || game?.question_phase !== "answering" || !currentQuestion) return
+    botIdsRef.current.forEach(async botId => {
+      if (botId === currentQuestion.author_id) return
+      if (answers.find(a => a.player_id === botId)) return
+      const key = `${currentQuestion.id}-ans-${botId}`
+      if (botActionsRef.current.has(key)) return
+      botActionsRef.current.add(key)
+      await supabase.rpc("gow_submit_answer", {
+        p_code: code, p_question_id: currentQuestion.id,
+        p_player_id: botId, p_text: pickRandWord(), p_skipped: false,
+      })
+    })
+  }, [currentQuestion?.id, game?.question_phase, answers.length])
+
+  // Auto-vote for bots
+  useEffect(() => {
+    if (!botIdsRef.current.length || game?.question_phase !== "voting" || !currentQuestion) return
+    botIdsRef.current.forEach(async botId => {
+      if (votes.find(v => v.voter_id === botId)) return
+      const key = `${currentQuestion.id}-vote-${botId}`
+      if (botActionsRef.current.has(key)) return
+      botActionsRef.current.add(key)
+      const eligible = answers.filter(a => !a.skipped && a.player_id !== botId)
+      const pick = eligible.length ? eligible[Math.floor(Math.random() * eligible.length)] : null
+      await supabase.rpc("gow_submit_vote", {
+        p_code: code, p_question_id: currentQuestion.id,
+        p_voter_id: botId, p_answer_id: pick?.id ?? null,
+      })
+    })
+  }, [currentQuestion?.id, game?.question_phase, answers.length, votes.length])
+
+  // Auto-submit bot round questions
+  useEffect(() => {
+    if (!botIdsRef.current.length || game?.phase !== "between_rounds") return
+    const round = game.round_index
+    botIdsRef.current.forEach(async botId => {
+      const player = players.find(p => p.id === botId)
+      if (player?.question) return
+      const key = `r${round}-q-${botId}`
+      if (botActionsRef.current.has(key)) return
+      botActionsRef.current.add(key)
+      await supabase.from("gow_players").update({ question: pickRandQuestion() }).eq("id", botId)
+    })
+  }, [roundIndex, game?.phase, players.length])
+
+  // ─────────────────────────────────────────────────────────
 
   async function submitAnswer(skip = false) {
     if (!currentQuestion || !myPlayerId) return

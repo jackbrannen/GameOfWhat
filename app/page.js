@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "../lib/supabase"
+import { PROMPT_CATEGORIES } from "../lib/prompts"
 
 const WORDS_A = [
   "MAPLE","RIVER","OCEAN","SUNRISE","VELVET","COPPER","SILVER","EMBER","FOREST","CLOUD",
@@ -52,6 +53,21 @@ async function createGame() {
   throw new Error("unable_to_allocate_game_code")
 }
 
+function pickRandWord() {
+  const all = Object.values(PROMPT_CATEGORIES).flat()
+  return all[Math.floor(Math.random() * all.length)]
+}
+const Q_TEMPLATES = [
+  w => `What would you do with ${w}?`,
+  w => `What's the best thing about ${w}?`,
+  w => `How would you explain ${w} to a five-year-old?`,
+  w => `What's the worst way to handle ${w}?`,
+  w => `What would ${w} say if it could talk?`,
+]
+function pickRandQuestion() {
+  return Q_TEMPLATES[Math.floor(Math.random() * Q_TEMPLATES.length)](pickRandWord())
+}
+
 const BG = "#1a1a2e"
 const YELLOW = "#FBDF54"
 
@@ -68,6 +84,36 @@ export default function Home() {
     try {
       const code = await createGame()
       router.push(`/${code}`)
+    } catch (e) {
+      setError(e?.message ?? "unknown error")
+      setIsCreating(false)
+    }
+  }
+
+  async function createDummyGame() {
+    if (isCreating) return
+    setError("")
+    setIsCreating(true)
+    try {
+      const code = await createGame()
+      const BOT_NAMES = ["Raccoon", "Flamingo", "Capybara"]
+      const { data: botData } = await supabase
+        .from("gow_players")
+        .insert(BOT_NAMES.map(name => ({ game_code: code, name, score: 0 })))
+        .select("id")
+      const botIds = (botData ?? []).map(b => b.id)
+      const { data: realData } = await supabase
+        .from("gow_players")
+        .insert({ game_code: code, name: "You", score: 0 })
+        .select("id").single()
+      localStorage.setItem(`gow:${code}:playerId`, realData.id)
+      localStorage.setItem(`gow:${code}:botIds`, JSON.stringify(botIds))
+      await supabase.rpc("gow_start_game", { p_code: code })
+      await Promise.all([...botIds, realData.id].map(id =>
+        supabase.from("gow_players").update({ question: pickRandQuestion() }).eq("id", id)
+      ))
+      await supabase.rpc("gow_start_next_round", { p_code: code })
+      router.push(`/${code}/play`)
     } catch (e) {
       setError(e?.message ?? "unknown error")
       setIsCreating(false)
@@ -171,6 +217,19 @@ export default function Home() {
           Error: {error}
         </p>
       )}
+
+      <button
+        onClick={createDummyGame}
+        disabled={isCreating}
+        style={{
+          position: "fixed", bottom: 20, left: "50%", transform: "translateX(-50%)",
+          background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.35)",
+          fontSize: 11, fontWeight: 700, padding: "8px 16px",
+          letterSpacing: "0.1em", textTransform: "uppercase", whiteSpace: "nowrap",
+        }}
+      >
+        Dummy Game
+      </button>
     </div>
   )
 }
