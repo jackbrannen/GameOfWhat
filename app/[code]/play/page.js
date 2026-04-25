@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { supabase } from "../../../lib/supabase"
 import { PROMPT_CATEGORIES } from "../../../lib/prompts"
 
-const BG = "#1F0A14"
+const BG = "#6B1A44"
 const YELLOW = "#FBDF54"
 const GREEN = "#12BAAA"
 const RED = "#F04F52"
