@@ -68,7 +68,7 @@ function pickRandQuestion() {
   return Q_TEMPLATES[Math.floor(Math.random() * Q_TEMPLATES.length)](pickRandWord())
 }
 
-const BG = "#1a1a2e"
+const BG = "#1F0A14"
 const YELLOW = "#FBDF54"
 
 export default function Home() {
