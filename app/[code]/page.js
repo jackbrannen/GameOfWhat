@@ -7,6 +7,24 @@ import { supabase } from "../../lib/supabase"
 const BG = "#1a1a2e"
 const YELLOW = "#FBDF54"
 
+const WORDS_A_GOW = [
+  "MAPLE","RIVER","OCEAN","SUNRISE","VELVET","COPPER","SILVER","EMBER","FOREST","CLOUD",
+  "IVORY","SAPPHIRE","SPRING","SUMMER","WINTER","AUTUMN","MORNING","MIDNIGHT","ORCHID","LANTERN",
+  "PINE","CEDAR","MEADOW","CANYON","HARBOR","ISLAND","VALLEY","MOUNTAIN","GARDEN","BREEZE",
+  "COMET","ROCKET","MIRROR","CARPET","POCKET","BRIDGE","CANDLE","PILOT","CIRCUS","PARADE",
+  "BLOSSOM","CORAL","PEBBLE","MARBLE","FROST","FLAME","SPARK","SHADOW","WONDER","GLIMMER",
+  "HONEY","BUTTER","COOKIE","WAFFLE","MUFFIN","BAGEL","COCOA","LATTE","LEMON","MANGO",
+  "PLUM","PEACH","BERRY","OLIVE","BASIL","PEPPER","GINGER","SUGAR","SALMON","TURKEY",
+  "PANDA","TIGER","OTTER","EAGLE","FALCON","ROBIN","WHALE","DOLPHIN","KOALA","ZEBRA",
+]
+
+function splitCodeGOW(code) {
+  for (const w of WORDS_A_GOW) {
+    if (code.startsWith(w)) return [w, code.slice(w.length)]
+  }
+  return [code, ""]
+}
+
 function loadProfile() {
   try {
     const local = JSON.parse(localStorage.getItem("jackgames:profile") || "null")
@@ -168,7 +186,7 @@ export default function Lobby({ params }) {
             The Game of What
           </div>
           <div style={{ fontSize: "clamp(18px, 6vw, 38px)", fontWeight: 900, letterSpacing: "-1px", lineHeight: 1, whiteSpace: "nowrap" }}>
-            {code}
+            {(() => { const [w1, w2] = splitCodeGOW(code); return <><span style={{ color: YELLOW }}>{w1}</span><span style={{ color: "rgba(255,255,255,0.75)" }}>{w2}</span></> })()}
           </div>
         </div>
         <button
