@@ -3,7 +3,6 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "../lib/supabase"
-import { PROMPT_CATEGORIES } from "../lib/prompts"
 
 const WORDS_A = [
   "MAPLE","RIVER","OCEAN","SUNRISE","VELVET","COPPER","SILVER","EMBER","FOREST","CLOUD",
@@ -53,10 +52,7 @@ async function createGame() {
   throw new Error("unable_to_allocate_game_code")
 }
 
-function pickRandWord() {
-  const all = Object.values(PROMPT_CATEGORIES).flat()
-  return all[Math.floor(Math.random() * all.length)]
-}
+const BOT_WORDS = ["pizza","coffee","traffic","vacation","homework","laundry","dentist","parking","sunshine","deadline","wifi","elevator","printer","leftovers","voicemail"]
 const Q_TEMPLATES = [
   w => `What would you do with ${w}?`,
   w => `What's the best thing about ${w}?`,
@@ -65,7 +61,8 @@ const Q_TEMPLATES = [
   w => `What would ${w} say if it could talk?`,
 ]
 function pickRandQuestion() {
-  return Q_TEMPLATES[Math.floor(Math.random() * Q_TEMPLATES.length)](pickRandWord())
+  const w = BOT_WORDS[Math.floor(Math.random() * BOT_WORDS.length)]
+  return Q_TEMPLATES[Math.floor(Math.random() * Q_TEMPLATES.length)](w)
 }
 
 const BG = "#6B1A44"

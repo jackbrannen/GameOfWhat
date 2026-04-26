@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "../../../lib/supabase"
-import { PROMPT_CATEGORIES } from "../../../lib/prompts"
 
 const BG = "#6B1A44"
 const YELLOW = "#FBDF54"
@@ -11,10 +10,7 @@ const GREEN = "#12BAAA"
 const RED = "#F04F52"
 const CARD_BG = "rgba(255,255,255,0.10)"
 
-function pickRandWord() {
-  const all = Object.values(PROMPT_CATEGORIES).flat()
-  return all[Math.floor(Math.random() * all.length)]
-}
+const BOT_WORDS = ["pizza","coffee","traffic","vacation","homework","laundry","dentist","parking","sunshine","deadline","wifi","elevator","printer","leftovers","voicemail"]
 const Q_TEMPLATES = [
   w => `What would you do with ${w}?`,
   w => `What's the best thing about ${w}?`,
@@ -23,7 +19,11 @@ const Q_TEMPLATES = [
   w => `What would ${w} say if it could talk?`,
 ]
 function pickRandQuestion() {
-  return Q_TEMPLATES[Math.floor(Math.random() * Q_TEMPLATES.length)](pickRandWord())
+  const w = BOT_WORDS[Math.floor(Math.random() * BOT_WORDS.length)]
+  return Q_TEMPLATES[Math.floor(Math.random() * Q_TEMPLATES.length)](w)
+}
+function pickRandWord() {
+  return BOT_WORDS[Math.floor(Math.random() * BOT_WORDS.length)]
 }
 
 export default function Play({ params }) {
@@ -271,38 +271,28 @@ export default function Play({ params }) {
     // Fresh fetch so we see words drawn by other players since last poll
     const { data: fresh } = await supabase
       .from("gow_games").select("used_prompts").eq("code", code).single()
-    const globallyUsed = new Set(fresh?.used_prompts ?? [])
+    const globallyUsed = fresh?.used_prompts ?? []
 
-    // Categories already used in this session (no repeats across all 5 words)
-    const usedCategories = new Set(shownPrompts.filter(p => !p.isName).map(p => p.category))
+    const { data: newWords } = await supabase.rpc("get_random_ideas", {
+      p_count: count,
+      p_exclude: globallyUsed,
+    })
 
-    const available = Object.entries(PROMPT_CATEGORIES)
-      .filter(([cat]) => !usedCategories.has(cat))
-      .sort(() => Math.random() - 0.5)
-
-    const newTags = []
-    const newWords = []
-    for (const [category, words] of available) {
-      if (newTags.length >= count) break
-      const pool = words.filter(w => !globallyUsed.has(w))
-      if (!pool.length) continue
-      const word = pool[Math.floor(Math.random() * pool.length)]
-      newTags.push({ word, category, isName: false })
-      newWords.push(word)
-    }
+    const ideas = newWords ?? []
+    const newTags = ideas.map(word => ({ word, isName: false }))
 
     if (isFirst) {
       const namedPlayers = players.filter(p => p.first_name || p.name)
       if (namedPlayers.length) {
         const pick = namedPlayers[Math.floor(Math.random() * namedPlayers.length)]
         newTags.splice(Math.floor(Math.random() * (newTags.length + 1)), 0,
-          { word: pick.first_name || pick.name, category: null, isName: true })
+          { word: pick.first_name || pick.name, isName: true })
       }
     }
 
-    if (newWords.length) {
+    if (ideas.length) {
       await supabase.from("gow_games")
-        .update({ used_prompts: [...Array.from(globallyUsed), ...newWords] })
+        .update({ used_prompts: [...globallyUsed, ...ideas] })
         .eq("code", code)
     }
 
