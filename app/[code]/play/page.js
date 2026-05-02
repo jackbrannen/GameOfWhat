@@ -125,7 +125,7 @@ export default function Play({ params }) {
 
   useEffect(() => {
     loadState()
-    const poll = setInterval(loadState, 1200)
+    const poll = setInterval(loadState, 5000)
     return () => clearInterval(poll)
   }, [code, myPlayerId])
 

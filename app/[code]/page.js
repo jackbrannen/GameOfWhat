@@ -107,7 +107,7 @@ export default function Lobby({ params }) {
 
   useEffect(() => {
     loadState()
-    const poll = setInterval(loadState, 1500)
+    const poll = setInterval(loadState, 5000)
     return () => clearInterval(poll)
   }, [code])
 
