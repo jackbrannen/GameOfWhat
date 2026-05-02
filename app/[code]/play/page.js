@@ -266,7 +266,6 @@ export default function Play({ params }) {
   async function handleDrawPrompts() {
     if (promptsPhase === "done") return
     const isFirst = promptsPhase === "none"
-    const count = isFirst ? 2 : 3
 
     // Fresh fetch so we see words drawn by other players since last poll
     const { data: fresh } = await supabase
@@ -274,7 +273,7 @@ export default function Play({ params }) {
     const globallyUsed = fresh?.used_prompts ?? []
 
     const { data: newWords } = await supabase.rpc("get_random_ideas", {
-      p_count: count,
+      p_count: 3,
       p_exclude: globallyUsed,
     })
 
@@ -297,7 +296,7 @@ export default function Play({ params }) {
     }
 
     setShownPrompts(prev => [...prev, ...newTags])
-    setPromptsPhase(isFirst ? "first" : "done")
+    setPromptsPhase(isFirst ? "first" : promptsPhase === "first" ? "second" : "done")
   }
 
   async function startNextRound() {
@@ -531,7 +530,7 @@ export default function Play({ params }) {
 
             {/* Ideas button */}
             <div style={{ marginTop: 16 }}>
-              {promptsPhase !== "done" ? (
+              {promptsPhase !== "done" ? (  // "none" | "first" | "second" | "done"
                 <button
                   onClick={handleDrawPrompts}
                   style={{ background: "rgba(255,255,255,0.18)", color: "white", fontSize: 15, fontWeight: 800, padding: "14px 18px", display: "block", width: "100%" }}
