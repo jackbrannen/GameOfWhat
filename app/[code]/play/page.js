@@ -26,6 +26,15 @@ function pickRandWord() {
   return BOT_WORDS[Math.floor(Math.random() * BOT_WORDS.length)]
 }
 
+const IDEAS_URL = "https://raw.githubusercontent.com/jackbrannen/JackGames/main/random_ideas.json"
+let _ideasCache = null
+async function fetchIdeas() {
+  if (_ideasCache) return _ideasCache
+  const res = await fetch(IDEAS_URL)
+  _ideasCache = await res.json()
+  return _ideasCache
+}
+
 export default function Play({ params }) {
   const router = useRouter()
   const code = useMemo(() => params.code.toUpperCase(), [params.code])
@@ -267,18 +276,22 @@ export default function Play({ params }) {
     if (promptsPhase === "done") return
     const isFirst = promptsPhase === "none"
 
+    const allIdeas = await fetchIdeas()
+
     // Fresh fetch so we see words drawn by other players since last poll
     const { data: fresh } = await supabase
       .from("gow_games").select("used_prompts").eq("code", code).single()
-    const globallyUsed = fresh?.used_prompts ?? []
+    const globallyUsed = new Set(fresh?.used_prompts ?? [])
 
-    const { data: newWords } = await supabase.rpc("get_random_ideas", {
-      p_count: 3,
-      p_exclude: globallyUsed,
-    })
+    const pool = allIdeas.filter(idea => !globallyUsed.has(idea))
+    const picked = []
+    const poolCopy = [...pool]
+    while (picked.length < 3 && poolCopy.length > 0) {
+      const idx = Math.floor(Math.random() * poolCopy.length)
+      picked.push(poolCopy.splice(idx, 1)[0])
+    }
 
-    const ideas = newWords ?? []
-    const newTags = ideas.map(word => ({ word, isName: false }))
+    const newTags = picked.map(word => ({ word, isName: false }))
 
     if (isFirst) {
       const others = players.filter(p => p.id !== myPlayerId && (p.first_name || p.name))
@@ -289,9 +302,9 @@ export default function Play({ params }) {
       }
     }
 
-    if (ideas.length) {
+    if (picked.length) {
       await supabase.from("gow_games")
-        .update({ used_prompts: [...globallyUsed, ...ideas] })
+        .update({ used_prompts: [...(fresh?.used_prompts ?? []), ...picked] })
         .eq("code", code)
     }
 
