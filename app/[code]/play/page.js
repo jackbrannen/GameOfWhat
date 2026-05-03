@@ -34,6 +34,17 @@ async function fetchIdeas() {
   _ideasCache = await res.json()
   return _ideasCache
 }
+function sampleIdeas(categories, excludeSet, count = 3) {
+  const cats = Object.keys(categories).map(cat => ({
+    cat,
+    pool: categories[cat].filter(idea => !excludeSet.has(idea.toLowerCase()))
+  })).filter(({ pool }) => pool.length > 0)
+  for (let i = cats.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [cats[i], cats[j]] = [cats[j], cats[i]]
+  }
+  return cats.slice(0, count).map(({ pool }) => pool[Math.floor(Math.random() * pool.length)])
+}
 
 export default function Play({ params }) {
   const router = useRouter()
@@ -276,21 +287,14 @@ export default function Play({ params }) {
     if (promptsPhase === "done") return
     const isFirst = promptsPhase === "none"
 
-    const allIdeas = await fetchIdeas()
+    const categories = await fetchIdeas()
 
     // Fresh fetch so we see words drawn by other players since last poll
     const { data: fresh } = await supabase
       .from("gow_games").select("used_prompts").eq("code", code).single()
-    const globallyUsed = new Set(fresh?.used_prompts ?? [])
+    const globallyUsed = new Set((fresh?.used_prompts ?? []).map(s => s.toLowerCase()))
 
-    const pool = allIdeas.filter(idea => !globallyUsed.has(idea))
-    const picked = []
-    const poolCopy = [...pool]
-    while (picked.length < 3 && poolCopy.length > 0) {
-      const idx = Math.floor(Math.random() * poolCopy.length)
-      picked.push(poolCopy.splice(idx, 1)[0])
-    }
-
+    const picked = sampleIdeas(categories, globallyUsed)
     const newTags = picked.map(word => ({ word, isName: false }))
 
     if (isFirst) {
