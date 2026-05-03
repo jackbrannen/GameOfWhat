@@ -281,11 +281,11 @@ export default function Play({ params }) {
     const newTags = ideas.map(word => ({ word, isName: false }))
 
     if (isFirst) {
-      const namedPlayers = players.filter(p => p.first_name || p.name)
-      if (namedPlayers.length) {
-        const pick = namedPlayers[Math.floor(Math.random() * namedPlayers.length)]
-        newTags.splice(Math.floor(Math.random() * (newTags.length + 1)), 0,
-          { word: pick.first_name || pick.name, isName: true })
+      const others = players.filter(p => p.id !== myPlayerId && (p.first_name || p.name))
+      if (others.length && newTags.length) {
+        const pick = others[Math.floor(Math.random() * others.length)]
+        const idx = Math.floor(Math.random() * newTags.length)
+        newTags[idx] = { word: pick.first_name || pick.name, isName: true }
       }
     }
 
