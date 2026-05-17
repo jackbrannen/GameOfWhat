@@ -145,7 +145,7 @@ export default function Home() {
       </h1>
 
       <p style={{
-        color: "rgba(255,255,255,0.45)",
+        color: "rgba(255,255,255,0.65)",
         fontSize: 14,
         fontWeight: 700,
         textAlign: "center",
@@ -220,7 +220,7 @@ export default function Home() {
         disabled={isCreating}
         style={{
           position: "fixed", bottom: 20, left: "50%", transform: "translateX(-50%)",
-          background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.35)",
+          background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.65)",
           fontSize: 11, fontWeight: 700, padding: "8px 16px",
           letterSpacing: "0.1em", textTransform: "uppercase", whiteSpace: "nowrap",
         }}

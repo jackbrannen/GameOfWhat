@@ -223,14 +223,14 @@ export default function Play({ params }) {
   async function submitAnswer(skip = false) {
     if (!currentQuestion || !myPlayerId) return
     setSubmittingAnswer(true)
-    await supabase.rpc("gow_submit_answer", {
+    const { error } = await supabase.rpc("gow_submit_answer", {
       p_code: code,
       p_question_id: currentQuestion.id,
       p_player_id: myPlayerId,
       p_text: skip ? null : myAnswer.trim(),
       p_skipped: skip,
     })
-    setSubmittingAnswer(false)
+    if (error) { setSubmittingAnswer(false); return }
     await loadState()
   }
 
@@ -251,13 +251,13 @@ export default function Play({ params }) {
     changingVoteRef.current = true
     setSubmittingVote(true)
     setMyVoteId(answerId ?? "nota")
-    await supabase.rpc("gow_submit_vote", {
+    const { error } = await supabase.rpc("gow_submit_vote", {
       p_code: code,
       p_question_id: currentQuestion.id,
       p_voter_id: myPlayerId,
       p_answer_id: answerId,
     })
-    setSubmittingVote(false)
+    if (error) { setSubmittingVote(false); changingVoteRef.current = false; return }
     await loadState()
     changingVoteRef.current = false
   }
@@ -324,7 +324,7 @@ export default function Play({ params }) {
   if (!game) {
     return (
       <div style={{ minHeight: "100dvh", background: BG, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 18, fontWeight: 700 }}>Loading…</p>
+        <p style={{ color: "rgba(255,255,255,0.65)", fontSize: 18, fontWeight: 700 }}>Loading…</p>
       </div>
     )
   }
@@ -365,15 +365,15 @@ export default function Play({ params }) {
 
     return (
       <div style={{ minHeight: "100dvh", background: BG, color: "white", display: "flex", flexDirection: "column" }}>
-        <div style={{ padding: "14px 20px", background: "rgba(0,0,0,0.3)", flexShrink: 0 }}>
-          <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", opacity: 0.4 }}>
+        <div style={{ padding: "14px 20px", background: "#4A123B", flexShrink: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 800, opacity: 0.75 }}>
             Round {(game.round_index ?? 0) + 1} of {game.rounds_total ?? 3}
           </div>
         </div>
         <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "28px 20px", paddingBottom: "max(28px, env(safe-area-inset-bottom, 28px))" }}>
           {snapQuestion && (
             <div style={{ marginBottom: 28 }}>
-              <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", opacity: 0.45, marginBottom: 10 }}>
+              <div style={{ fontSize: 17, fontWeight: 800, color: "rgba(255,255,255,0.85)", marginBottom: 10 }}>
                 {snapQuestionAuthor ? `${snapQuestionAuthor.name}'s question` : "Question"}
               </div>
               <div style={{ fontSize: "clamp(22px, 6vw, 32px)", fontWeight: 800, lineHeight: 1.25 }}>
@@ -397,11 +397,11 @@ export default function Play({ params }) {
                     </div>
                     <div>
                       <div style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.3 }}>{group.text}</div>
-                      <div style={{ fontSize: 13, fontWeight: 700, opacity: 0.5, marginTop: 3 }}>{authors.join(" & ")}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, opacity: 0.65, marginTop: 3 }}>{authors.join(" & ")}</div>
                     </div>
                   </div>
                   {groupVoters.length > 0 && (
-                    <div style={{ fontSize: 12, fontWeight: 700, opacity: 0.45, marginLeft: 58 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, opacity: 0.65, marginLeft: 58 }}>
                       Voted by: {groupVoters.join(", ")}
                     </div>
                   )}
@@ -412,15 +412,15 @@ export default function Play({ params }) {
               <div style={{ background: CARD_BG, padding: "16px 20px" }}>
                 <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 10 }}>
                   <div style={{ background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.5)", fontSize: 20, fontWeight: 900, minWidth: 44, textAlign: "center", padding: "6px 0", flexShrink: 0 }}>{snapNotaVoters.length}</div>
-                  <div style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.3, opacity: 0.6 }}>None of the above</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.3, opacity: 0.65 }}>None of the above</div>
                 </div>
-                <div style={{ fontSize: 12, fontWeight: 700, opacity: 0.45, marginLeft: 58 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, opacity: 0.65, marginLeft: 58 }}>
                   Voted by: {snapNotaVoters.join(", ")}
                 </div>
               </div>
             )}
             {snapSkipped.length > 0 && (
-              <div style={{ fontSize: 13, opacity: 0.35, fontWeight: 600, marginTop: 4 }}>
+              <div style={{ fontSize: 13, opacity: 0.65, fontWeight: 600, marginTop: 4 }}>
                 Skipped: {snapSkipped.map(a => players.find(p => p.id === a.player_id)?.name).filter(Boolean).join(", ")}
               </div>
             )}
@@ -448,7 +448,7 @@ export default function Play({ params }) {
         <div style={{ fontSize: "clamp(56px, 16vw, 88px)", fontWeight: 900, lineHeight: 0.9, marginBottom: 32 }}>
           Game<br />Over
         </div>
-        <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", opacity: 0.5, marginBottom: 16 }}>
+        <div style={{ fontSize: 17, fontWeight: 800, color: "rgba(255,255,255,0.85)", marginBottom: 16 }}>
           Final Scores
         </div>
         {finalPlayers.map((p, i) => (
@@ -480,20 +480,20 @@ export default function Play({ params }) {
     return (
       <div style={{ minHeight: "100dvh", background: BG, color: "white", padding: "40px 24px", display: "flex", flexDirection: "column" }}>
         {game.round_index > 0 && (
-          <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", opacity: 0.45, marginBottom: 12 }}>
+          <div style={{ fontSize: 13, fontWeight: 800, opacity: 0.75, marginBottom: 12 }}>
             Round {game.round_index} complete
           </div>
         )}
         <div style={{ fontSize: "clamp(44px, 12vw, 72px)", fontWeight: 900, lineHeight: 1, marginBottom: 8, whiteSpace: "nowrap" }}>
           Round {game.round_index + 1}
         </div>
-        <div style={{ fontSize: 16, fontWeight: 700, opacity: 0.5, marginBottom: 40 }}>
+        <div style={{ fontSize: 16, fontWeight: 700, opacity: 0.65, marginBottom: 40 }}>
           of {game.rounds_total}
         </div>
 
         {game.round_index > 0 && (
           <>
-            <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", opacity: 0.45, marginBottom: 16 }}>
+            <div style={{ fontSize: 17, fontWeight: 800, color: "rgba(255,255,255,0.85)", marginBottom: 16 }}>
               Scores
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 40 }}>
@@ -509,18 +509,18 @@ export default function Play({ params }) {
           </>
         )}
 
-        <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", opacity: 0.45, marginBottom: 14 }}>
+        <div style={{ fontSize: 17, fontWeight: 800, color: "rgba(255,255,255,0.85)", marginBottom: 14 }}>
           Round {game.round_index + 1} Questions
         </div>
-        <div style={{ background: "rgba(0,0,0,0.28)", padding: "4px 14px 10px", borderTop: "3px solid rgba(255,255,255,0.30)", marginBottom: 20 }}>
+        <div style={{ background: "#5C1640", padding: "4px 14px 10px", borderTop: "3px solid rgba(255,255,255,0.30)", marginBottom: 20 }}>
           {players.map(p => (
             <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.12)" }}>
               <div style={{ width: 7, height: 7, borderRadius: "50%", background: p.question ? GREEN : "rgba(255,255,255,0.2)", flexShrink: 0 }} />
               <span style={{ fontSize: 17, fontWeight: 700, flex: 1 }}>
                 {p.name}
-                {p.id === myPlayerId && <span style={{ fontSize: 12, fontWeight: 600, opacity: 0.45, marginLeft: 6 }}>you</span>}
+                {p.id === myPlayerId && <span style={{ fontSize: 12, fontWeight: 600, opacity: 0.65, marginLeft: 6 }}>you</span>}
               </span>
-              <span style={{ fontSize: 13, fontWeight: 600, opacity: 0.45 }}>
+              <span style={{ fontSize: 13, fontWeight: 600, opacity: 0.65 }}>
                 {p.question ? "Ready" : "Writing…"}
               </span>
             </div>
@@ -583,7 +583,7 @@ export default function Play({ params }) {
         )}
 
         {me && myNextQuestion && !allNextQuestionsIn && (
-          <div style={{ fontSize: 16, fontWeight: 700, opacity: 0.55 }}>
+          <div style={{ fontSize: 16, fontWeight: 700, opacity: 0.65 }}>
             Your question is in. Waiting for others…
           </div>
         )}
@@ -634,8 +634,8 @@ export default function Play({ params }) {
     <div style={{ minHeight: "100dvh", background: BG, color: "white", display: "flex", flexDirection: "column" }}>
 
       {/* Top bar — round indicator only, no scores */}
-      <div style={{ padding: "14px 20px", background: "rgba(0,0,0,0.3)", flexShrink: 0 }}>
-        <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", opacity: 0.4 }}>
+      <div style={{ padding: "14px 20px", background: "#4A123B", flexShrink: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 800, opacity: 0.75 }}>
           Round {(game.round_index ?? 0) + 1} of {game.rounds_total ?? 3}
         </div>
       </div>
@@ -646,7 +646,7 @@ export default function Play({ params }) {
         {/* Question */}
         {currentQuestion && (
           <div style={{ marginBottom: 28 }}>
-            <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", opacity: 0.45, marginBottom: 10 }}>
+            <div style={{ fontSize: 17, fontWeight: 800, color: "rgba(255,255,255,0.85)", marginBottom: 10 }}>
               {questionAuthor ? `${questionAuthor.name}'s question` : "Question"}
             </div>
             <div style={{ fontSize: "clamp(22px, 6vw, 32px)", fontWeight: 800, lineHeight: 1.25 }}>
@@ -660,7 +660,7 @@ export default function Play({ params }) {
           <>
             {isQuestionAuthor ? (
               <div>
-                <div style={{ fontSize: 15, fontWeight: 700, opacity: 0.55, marginBottom: 20 }}>
+                <div style={{ fontSize: 15, fontWeight: 700, opacity: 0.65, marginBottom: 20 }}>
                   This is your question — sit back while others answer.
                 </div>
                 {eligibleAnswerers.map(p => {
@@ -675,10 +675,10 @@ export default function Play({ params }) {
               </div>
             ) : hasSubmittedAnswer ? (
               <div>
-                <div style={{ fontSize: 15, fontWeight: 700, opacity: 0.55, marginBottom: 4 }}>
+                <div style={{ fontSize: 15, fontWeight: 700, opacity: 0.65, marginBottom: 4 }}>
                   Your answer: <span style={{ opacity: 1, color: "white" }}>{hasSkipped ? "(skipped)" : myAnswerRecord?.text}</span>
                 </div>
-                <div style={{ fontSize: 13, fontWeight: 700, opacity: 0.4, marginTop: 16 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, opacity: 0.65, marginTop: 16 }}>
                   Waiting for: {waitingOnPlayers.map(p => p.name).join(", ")}
                 </div>
               </div>
@@ -716,7 +716,7 @@ export default function Play({ params }) {
         {/* VOTING PHASE */}
         {phase === "voting" && (
           <>
-            <div style={{ fontSize: 13, fontWeight: 700, opacity: 0.45, marginBottom: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, opacity: 0.65, marginBottom: 16 }}>
               {myVoteId ? "Vote cast — tap ✕ to change:" : "Vote for your favorite:"}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 }}>
@@ -750,14 +750,14 @@ export default function Play({ params }) {
                       {isSelected && (
                         <button
                           onClick={handleDeselect}
-                          style={{ background: "rgba(0,0,0,0.3)", color: YELLOW, fontSize: 22, fontWeight: 900, padding: "18px 24px", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}
+                          style={{ background: "#4A123B", color: YELLOW, fontSize: 22, fontWeight: 900, padding: "18px 24px", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}
                         >
                           ✕
                         </button>
                       )}
                     </div>
                     {isMine && (
-                      <div style={{ fontSize: 11, fontWeight: 700, color: selfFlash ? RED : "rgba(255,255,255,0.35)", marginTop: 4, marginLeft: 2, transition: "color 150ms" }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: selfFlash ? RED : "rgba(255,255,255,0.65)", marginTop: 4, marginLeft: 2, transition: "color 150ms" }}>
                         Your answer — you can't vote for yourself
                       </div>
                     )}
@@ -790,7 +790,7 @@ export default function Play({ params }) {
                     {isNota && (
                       <button
                         onClick={handleDeselect}
-                        style={{ background: "rgba(0,0,0,0.3)", color: YELLOW, fontSize: 22, fontWeight: 900, padding: "16px 24px", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}
+                        style={{ background: "#4A123B", color: YELLOW, fontSize: 22, fontWeight: 900, padding: "16px 24px", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}
                       >
                         ✕
                       </button>
@@ -802,7 +802,7 @@ export default function Play({ params }) {
 
             {/* Who has voted */}
             <div>
-              <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", opacity: 0.35, marginBottom: 10 }}>
+              <div style={{ fontSize: 17, fontWeight: 800, color: "rgba(255,255,255,0.85)", marginBottom: 10 }}>
                 Votes
               </div>
               {eligibleVoterIds.map(pid => {
@@ -821,7 +821,7 @@ export default function Play({ params }) {
         {/* Scores — answering/voting only */}
         {(phase === "answering" || phase === "voting") && (
           <div style={{ marginTop: "auto", paddingTop: 32 }}>
-            <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", opacity: 0.35, marginBottom: 12 }}>
+            <div style={{ fontSize: 17, fontWeight: 800, color: "rgba(255,255,255,0.85)", marginBottom: 12 }}>
               Scores
             </div>
             {sortedPlayers.map(p => (
