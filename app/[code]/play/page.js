@@ -8,7 +8,8 @@ const BG = "#6B1A44"
 const YELLOW = "#FBDF54"
 const GREEN = "#12BAAA"
 const RED = "#F04F52"
-const CARD_BG = "rgba(255,255,255,0.10)"
+const WARM_LIGHT = "#821F42"
+const CARD_BG = WARM_LIGHT
 
 const BOT_WORDS = ["pizza","coffee","traffic","vacation","homework","laundry","dentist","parking","sunshine","deadline","wifi","elevator","printer","leftovers","voicemail"]
 const Q_TEMPLATES = [
@@ -392,7 +393,7 @@ export default function Play({ params }) {
               return (
                 <div key={group.primaryId} style={{ background: CARD_BG, padding: "16px 20px" }}>
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: groupVoters.length ? 10 : 0 }}>
-                    <div style={{ background: pts > 0 ? YELLOW : "rgba(255,255,255,0.12)", color: pts > 0 ? "#000" : "rgba(255,255,255,0.5)", fontSize: 20, fontWeight: 900, minWidth: 44, textAlign: "center", padding: "6px 0", flexShrink: 0 }}>
+                    <div style={{ background: pts > 0 ? YELLOW : WARM_LIGHT, color: pts > 0 ? "#000" : "rgba(255,255,255,0.5)", fontSize: 20, fontWeight: 900, minWidth: 44, textAlign: "center", padding: "6px 0", flexShrink: 0 }}>
                       {pts > 0 ? `+${pts}` : "0"}
                     </div>
                     <div>
@@ -411,7 +412,7 @@ export default function Play({ params }) {
             {snapNotaVoters.length > 0 && (
               <div style={{ background: CARD_BG, padding: "16px 20px" }}>
                 <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 10 }}>
-                  <div style={{ background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.5)", fontSize: 20, fontWeight: 900, minWidth: 44, textAlign: "center", padding: "6px 0", flexShrink: 0 }}>{snapNotaVoters.length}</div>
+                  <div style={{ background: WARM_LIGHT, color: "rgba(255,255,255,0.5)", fontSize: 20, fontWeight: 900, minWidth: 44, textAlign: "center", padding: "6px 0", flexShrink: 0 }}>{snapNotaVoters.length}</div>
                   <div style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.3, opacity: 0.65 }}>None of the above</div>
                 </div>
                 <div style={{ fontSize: 13, fontWeight: 700, opacity: 0.65, marginLeft: 58 }}>
@@ -453,7 +454,7 @@ export default function Play({ params }) {
         </div>
         {finalPlayers.map((p, i) => (
           <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.12)" }}>
-            <div style={{ background: i === 0 ? YELLOW : "rgba(255,255,255,0.16)", color: i === 0 ? "#000" : "white", fontSize: 22, fontWeight: 900, minWidth: 52, textAlign: "center", padding: "8px 0" }}>
+            <div style={{ background: i === 0 ? YELLOW : WARM_LIGHT, color: i === 0 ? "#000" : "white", fontSize: 22, fontWeight: 900, minWidth: 52, textAlign: "center", padding: "8px 0" }}>
               {p.score}
             </div>
             <div>
@@ -499,7 +500,7 @@ export default function Play({ params }) {
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 40 }}>
               {sortedPlayers.map((p, i) => (
                 <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                  <div style={{ background: i === 0 ? YELLOW : "rgba(255,255,255,0.16)", color: i === 0 ? "#000" : "white", fontSize: 24, fontWeight: 900, minWidth: 56, textAlign: "center", padding: "10px 0" }}>
+                  <div style={{ background: i === 0 ? YELLOW : WARM_LIGHT, color: i === 0 ? "#000" : "white", fontSize: 24, fontWeight: 900, minWidth: 56, textAlign: "center", padding: "10px 0" }}>
                     {p.score}
                   </div>
                   <span style={{ fontSize: 20, fontWeight: 700, color: p.id === myPlayerId ? YELLOW : "white" }}>{p.name}</span>
@@ -535,7 +536,7 @@ export default function Play({ params }) {
               onKeyDown={e => e.key === "Enter" && submitRoundQuestion()}
               placeholder="Write a question for everyone…"
               maxLength={200}
-              style={{ background: "rgba(255,255,255,0.15)", color: "white", fontSize: 20, padding: "16px 18px", width: "100%", display: "block", border: "none", outline: "none", boxSizing: "border-box" }}
+              style={{ background: WARM_LIGHT, color: "white", fontSize: 20, padding: "16px 18px", width: "100%", display: "block", border: "none", outline: "none", boxSizing: "border-box" }}
             />
             <button
               onClick={submitRoundQuestion}
@@ -550,12 +551,12 @@ export default function Play({ params }) {
               {promptsPhase !== "done" ? (  // "none" | "first" | "second" | "done"
                 <button
                   onClick={handleDrawPrompts}
-                  style={{ background: "rgba(255,255,255,0.18)", color: "white", fontSize: 15, fontWeight: 800, padding: "14px 18px", display: "block", width: "100%" }}
+                  style={{ background: WARM_LIGHT, color: "white", fontSize: 15, fontWeight: 800, padding: "14px 18px", display: "block", width: "100%" }}
                 >
                   {promptsPhase === "none" ? "✦ Random ideas" : "✦ 3 more ideas"}
                 </button>
               ) : (
-                <div style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.25)", padding: "12px 18px", background: "rgba(255,255,255,0.05)" }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.25)", padding: "12px 18px", background: WARM_LIGHT }}>
                   No more ideas for this question
                 </div>
               )}
@@ -570,7 +571,7 @@ export default function Play({ params }) {
                     borderRadius: 999,
                     fontSize: 14,
                     fontWeight: 700,
-                    background: p.isName ? "rgba(251,223,84,0.12)" : "rgba(255,255,255,0.1)",
+                    background: p.isName ? "rgba(251,223,84,0.12)" : WARM_LIGHT,
                     color: p.isName ? YELLOW : "white",
                     border: p.isName ? "1px solid rgba(251,223,84,0.3)" : "1px solid rgba(255,255,255,0.15)",
                   }}>
@@ -690,7 +691,7 @@ export default function Play({ params }) {
                   placeholder="Your answer…"
                   maxLength={300}
                   rows={3}
-                  style={{ background: "rgba(255,255,255,0.1)", color: "white", fontSize: 20, padding: "16px 18px", width: "100%", border: "none", outline: "none", resize: "none", display: "block", boxSizing: "border-box", lineHeight: 1.4, marginBottom: 8 }}
+                  style={{ background: WARM_LIGHT, color: "white", fontSize: 20, padding: "16px 18px", width: "100%", border: "none", outline: "none", resize: "none", display: "block", boxSizing: "border-box", lineHeight: 1.4, marginBottom: 8 }}
                 />
                 <div style={{ display: "flex", gap: 8 }}>
                   <button
@@ -703,7 +704,7 @@ export default function Play({ params }) {
                   <button
                     onClick={() => submitAnswer(true)}
                     disabled={submittingAnswer}
-                    style={{ background: "rgba(255,255,255,0.15)", color: "white", fontSize: 15, fontWeight: 700, padding: "16px 20px", flexShrink: 0 }}
+                    style={{ background: WARM_LIGHT, color: "white", fontSize: 15, fontWeight: 700, padding: "16px 20px", flexShrink: 0 }}
                   >
                     Skip
                   </button>
@@ -775,7 +776,7 @@ export default function Play({ params }) {
                       disabled={submittingVote || isNota}
                       style={{
                         flex: 1,
-                        background: isNota ? YELLOW : "rgba(255,255,255,0.09)",
+                        background: isNota ? YELLOW : WARM_LIGHT,
                         color: isNota ? "#000" : "rgba(255,255,255,0.5)",
                         fontSize: 15,
                         fontWeight: 700,
@@ -826,7 +827,7 @@ export default function Play({ params }) {
             </div>
             {sortedPlayers.map(p => (
               <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.10)" }}>
-                <div style={{ background: "rgba(255,255,255,0.15)", fontSize: 18, fontWeight: 900, minWidth: 40, textAlign: "center", padding: "4px 0", color: "white" }}>
+                <div style={{ background: WARM_LIGHT, fontSize: 18, fontWeight: 900, minWidth: 40, textAlign: "center", padding: "4px 0", color: "white" }}>
                   {p.score}
                 </div>
                 <span style={{ fontSize: 16, fontWeight: 700, color: p.id === myPlayerId ? YELLOW : "white" }}>{p.name}</span>

@@ -6,6 +6,7 @@ import { supabase } from "../../lib/supabase"
 
 const BG = "#6B1A44"
 const YELLOW = "#FBDF54"
+const WARM_LIGHT = "#821F42"
 
 const WORDS_A_GOW = [
   "MAPLE","RIVER","OCEAN","SUNRISE","VELVET","COPPER","SILVER","EMBER","FOREST","CLOUD",
@@ -42,7 +43,7 @@ function saveProfile(profile) {
 }
 
 const inputStyle = {
-  background: "rgba(255,255,255,0.15)",
+  background: WARM_LIGHT,
   color: "white",
   fontSize: 20,
   padding: "16px 18px",
@@ -211,7 +212,7 @@ export default function Lobby({ params }) {
             if (navigator.share) await navigator.share({ title: `Join Game of What — ${code}`, url })
             else { await navigator.clipboard.writeText(url); alert("Link copied!") }
           }}
-          style={{ background: "rgba(255,255,255,0.12)", color: "white", fontSize: 13, fontWeight: 800, padding: "10px 16px", flexShrink: 0, marginTop: 4 }}
+          style={{ background: WARM_LIGHT, color: "white", fontSize: 13, fontWeight: 800, padding: "10px 16px", flexShrink: 0, marginTop: 4 }}
         >
           Invite
         </button>
@@ -226,7 +227,7 @@ export default function Lobby({ params }) {
               key={v}
               onClick={() => saveRounds(v)}
               style={{
-                background: Number(rounds) === v ? YELLOW : "rgba(255,255,255,0.15)",
+                background: Number(rounds) === v ? YELLOW : WARM_LIGHT,
                 color: Number(rounds) === v ? "#000" : "white",
                 fontSize: 18,
                 fontWeight: 900,
@@ -377,7 +378,7 @@ export default function Lobby({ params }) {
                   </div>
                   <div style={{
                     padding: "10px 14px", flex: 1,
-                    background: "rgba(255,255,255,0.08)",
+                    background: WARM_LIGHT,
                     display: "flex", alignItems: "center",
                   }}>
                     <span style={{ fontSize: 16, fontWeight: 700, color: "white" }}>
@@ -391,7 +392,7 @@ export default function Lobby({ params }) {
             <div style={{ display: "flex", gap: 8 }}>
               <button
                 onClick={() => setConfirmingStart(false)}
-                style={{ flex: 1, background: "rgba(255,255,255,0.12)", color: "white", fontSize: 17, fontWeight: 800, padding: "16px" }}
+                style={{ flex: 1, background: WARM_LIGHT, color: "white", fontSize: 17, fontWeight: 800, padding: "16px" }}
               >
                 Cancel
               </button>

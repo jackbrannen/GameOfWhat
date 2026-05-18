@@ -67,6 +67,7 @@ function pickRandQuestion() {
 
 const BG = "#6B1A44"
 const YELLOW = "#FBDF54"
+const WARM_LIGHT = "#821F42"
 
 export default function Home() {
   const router = useRouter()
@@ -182,7 +183,7 @@ export default function Home() {
             style={{
               flex: 1,
               minWidth: 0,
-              background: "rgba(255,255,255,0.15)",
+              background: WARM_LIGHT,
               border: "none",
               color: "white",
               fontSize: 18,
@@ -196,7 +197,7 @@ export default function Home() {
           <button
             onClick={onJoin}
             style={{
-              background: "rgba(255,255,255,0.15)",
+              background: WARM_LIGHT,
               color: "white",
               fontSize: 18,
               fontWeight: 900,
@@ -220,7 +221,7 @@ export default function Home() {
         disabled={isCreating}
         style={{
           position: "fixed", bottom: 20, left: "50%", transform: "translateX(-50%)",
-          background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.65)",
+          background: WARM_LIGHT, color: "rgba(255,255,255,0.65)",
           fontSize: 11, fontWeight: 700, padding: "8px 16px",
           letterSpacing: "0.1em", textTransform: "uppercase", whiteSpace: "nowrap",
         }}
