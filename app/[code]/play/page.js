@@ -47,6 +47,22 @@ function sampleIdeas(categories, excludeSet, count = 3) {
   return cats.slice(0, count).map(({ pool }) => pool[Math.floor(Math.random() * pool.length)])
 }
 
+function playChirp() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.frequency.setValueAtTime(523, ctx.currentTime)
+    osc.frequency.setValueAtTime(659, ctx.currentTime + 0.08)
+    gain.gain.setValueAtTime(0.25, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25)
+    osc.start(ctx.currentTime)
+    osc.stop(ctx.currentTime + 0.25)
+  } catch {}
+}
+
 export default function Play({ params }) {
   const router = useRouter()
   const code = useMemo(() => params.code.toUpperCase(), [params.code])
@@ -65,6 +81,7 @@ export default function Play({ params }) {
   const changingVoteRef = useRef(false)
   const botIdsRef = useRef([])
   const botActionsRef = useRef(new Set())
+  const soundTriggerRef = useRef(null)
   const [resultSnapshot, setResultSnapshot] = useState(null)
   const [resultsAcknowledged, setResultsAcknowledged] = useState(null)
   const [roundQuestion, setRoundQuestion] = useState("")
@@ -72,6 +89,14 @@ export default function Play({ params }) {
   const [shownPrompts, setShownPrompts] = useState([])
   const [promptsPhase, setPromptsPhase] = useState("none")
   const [gameOverPlayers, setGameOverPlayers] = useState(null)
+
+  useEffect(() => {
+    if (!game || !myPlayerId) return
+    const prev = soundTriggerRef.current
+    soundTriggerRef.current = game.phase
+    if (!prev) return
+    if (prev !== game.phase) playChirp()
+  }, [game?.phase])
 
   useEffect(() => {
     const existing = localStorage.getItem(`gow:${code}:playerId`)
