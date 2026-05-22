@@ -171,8 +171,14 @@ export default function Play({ params }) {
 
   useEffect(() => {
     loadState()
-    const poll = setInterval(loadState, 5000)
-    return () => clearInterval(poll)
+    const poll = setInterval(loadState, 1500)
+    const channel = supabase.channel(`gow-play-${code}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "gow_games", filter: `code=eq.${code}` }, loadState)
+      .on("postgres_changes", { event: "*", schema: "public", table: "gow_players", filter: `game_code=eq.${code}` }, loadState)
+      .on("postgres_changes", { event: "*", schema: "public", table: "gow_answers" }, loadState)
+      .on("postgres_changes", { event: "*", schema: "public", table: "gow_votes" }, loadState)
+      .subscribe()
+    return () => { clearInterval(poll); supabase.removeChannel(channel) }
   }, [code, myPlayerId])
 
   const currentQuestionId = currentQuestion?.id
@@ -469,6 +475,8 @@ export default function Play({ params }) {
 
   if (game.phase === "finished") {
     const finalPlayers = [...(gameOverPlayers ?? players)].sort((a, b) => b.score - a.score)
+    const topScore = finalPlayers[0]?.score ?? 0
+    const isTie = finalPlayers.filter(p => p.score === topScore).length > 1
     return (
       <div style={{ minHeight: "100dvh", background: BG, color: "white", padding: "40px 24px" }}>
         <div style={{ fontSize: "clamp(56px, 16vw, 88px)", fontWeight: 900, lineHeight: 0.9, marginBottom: 32 }}>
@@ -477,17 +485,20 @@ export default function Play({ params }) {
         <div style={{ fontSize: 17, fontWeight: 800, color: "rgba(255,255,255,0.85)", marginBottom: 16 }}>
           Final Scores
         </div>
-        {finalPlayers.map((p, i) => (
+        {finalPlayers.map((p, i) => {
+          const isWinner = p.score === topScore
+          return (
           <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.12)" }}>
-            <div style={{ background: i === 0 ? YELLOW : WARM_LIGHT, color: i === 0 ? "#000" : "white", fontSize: 22, fontWeight: 900, minWidth: 52, textAlign: "center", padding: "8px 0" }}>
+            <div style={{ background: isWinner ? YELLOW : WARM_LIGHT, color: isWinner ? "#000" : "white", fontSize: 22, fontWeight: 900, minWidth: 52, textAlign: "center", padding: "8px 0" }}>
               {p.score}
             </div>
             <div>
               <span style={{ fontSize: 22, fontWeight: 700 }}>{p.name}</span>
-              {i === 0 && <span style={{ fontSize: 12, fontWeight: 800, color: YELLOW, marginLeft: 10, textTransform: "uppercase", letterSpacing: "0.1em" }}>Winner!</span>}
+              {isWinner && <span style={{ fontSize: 12, fontWeight: 800, color: YELLOW, marginLeft: 10, textTransform: "uppercase", letterSpacing: "0.1em" }}>{isTie ? "Tied!" : "Winner!"}</span>}
             </div>
           </div>
-        ))}
+          )
+        })}
         <button
           onClick={resetGame}
           style={{ background: YELLOW, color: "#000", fontSize: 20, fontWeight: 900, padding: "20px", width: "100%", display: "block", marginTop: 40 }}
