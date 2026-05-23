@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "../../../lib/supabase"
+import { useSubmitNudge } from "../../../lib/useSubmitNudge"
 
 const BG = "#6B1A44"
 const YELLOW = "#FBDF54"
@@ -645,6 +646,7 @@ export default function Play({ params }) {
   const myAnswerRecord = answers.find(a => a.player_id === myPlayerId)
   const hasSubmittedAnswer = !!myAnswerRecord
   const hasSkipped = myAnswerRecord?.skipped
+  const nudgeAnswer = useSubmitNudge(myAnswer, hasSubmittedAnswer)
   const eligibleAnswerers = players.filter(p => p.id !== currentQuestion?.author_id)
   const waitingOnPlayers = eligibleAnswerers.filter(p => !answers.some(a => a.player_id === p.id))
 
@@ -735,7 +737,7 @@ export default function Play({ params }) {
                   <button
                     onClick={() => submitAnswer(false)}
                     disabled={!myAnswer.trim() || submittingAnswer}
-                    style={{ background: YELLOW, color: "#000", fontSize: 18, fontWeight: 900, padding: "16px", flex: 1, display: "block" }}
+                    style={{ background: YELLOW, color: "#000", fontSize: 18, fontWeight: 900, padding: "16px", flex: 1, display: "block", animation: nudgeAnswer ? "nudgePulse 1.5s ease-in-out infinite" : "none" }}
                   >
                     Submit Answer
                   </button>
