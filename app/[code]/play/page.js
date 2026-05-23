@@ -395,6 +395,11 @@ export default function Play({ params }) {
 
   const me = players.find(p => p.id === myPlayerId)
 
+  async function sendInlinePoke(targetName) {
+    if (!me) return
+    await supabase.from("pokes").insert({ room_code: code, from_player: me.name, to_player: targetName, message: "👉" })
+  }
+
   // ── PokeSystem (always mounted for notifications) ──────────────────────────
   const pokeSystemNode = me ? (
     <PokeSystem
@@ -610,18 +615,26 @@ export default function Play({ params }) {
           Round {game.round_index + 1} Questions
         </div>
         <div style={{ background: "#5C1640", padding: "4px 14px 10px", borderTop: "3px solid rgba(255,255,255,0.30)", marginBottom: 20 }}>
-          {players.map(p => (
-            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.12)" }}>
-              <div style={{ width: 7, height: 7, borderRadius: "50%", background: p.question ? GREEN : "rgba(255,255,255,0.2)", flexShrink: 0 }} />
-              <span style={{ fontSize: 17, fontWeight: 700, flex: 1 }}>
-                {p.name}
-                {p.id === myPlayerId && <span style={{ fontSize: 12, fontWeight: 600, opacity: 0.65, marginLeft: 6 }}>you</span>}
-              </span>
-              <span style={{ fontSize: 13, fontWeight: 600, opacity: 0.65 }}>
-                {p.question ? "Ready" : typingPlayerIds.has(p.id) ? "💬" : "Writing…"}
-              </span>
-            </div>
-          ))}
+          {players.map(p => {
+            const done = !!p.question
+            const isMe = p.id === myPlayerId
+            return (
+              <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.12)" }}>
+                <div style={{ width: 7, height: 7, borderRadius: "50%", background: done ? GREEN : "rgba(255,255,255,0.2)", flexShrink: 0 }} />
+                <span style={{ fontSize: 17, fontWeight: 700, flex: 1 }}>
+                  {p.name}
+                  {isMe && <span style={{ fontSize: 12, fontWeight: 600, opacity: 0.65, marginLeft: 6 }}>you</span>}
+                </span>
+                {!done && !isMe ? (
+                  <button onClick={() => sendInlinePoke(p.name)} style={{ background: "transparent", color: "rgba(255,255,255,0.55)", fontSize: 20, padding: "0 4px", lineHeight: 1 }}>👉</button>
+                ) : (
+                  <span style={{ fontSize: 13, fontWeight: 600, opacity: 0.65 }}>
+                    {done ? "Ready" : typingPlayerIds.has(p.id) ? "💬" : "Writing…"}
+                  </span>
+                )}
+              </div>
+            )
+          })}
         </div>
 
         {me && !myNextQuestion && (
