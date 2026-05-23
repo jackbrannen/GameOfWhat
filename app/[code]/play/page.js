@@ -405,7 +405,7 @@ export default function Play({ params }) {
             Round {(game.round_index ?? 0) + 1} of {game.rounds_total ?? 3}
           </div>
         </div>
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "28px 20px", paddingBottom: "max(28px, env(safe-area-inset-bottom, 28px))" }}>
+        <div style={{ flex: 1, overflowY: "auto", padding: "28px 20px", paddingBottom: 100 }}>
           {snapQuestion && (
             <div style={{ marginBottom: 28 }}>
               <div style={{ fontSize: 17, fontWeight: 800, color: "rgba(255,255,255,0.85)", marginBottom: 10 }}>
@@ -460,6 +460,8 @@ export default function Play({ params }) {
               </div>
             )}
           </div>
+        </div>
+        <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: BG, padding: "16px 20px", paddingBottom: "max(16px, env(safe-area-inset-bottom))" }}>
           <button
             onClick={handleAdvanceFromResults}
             style={{ background: YELLOW, color: "#000", fontSize: 20, fontWeight: 900, padding: "20px", width: "100%", display: "block" }}
@@ -481,33 +483,37 @@ export default function Play({ params }) {
     const topScore = finalPlayers[0]?.score ?? 0
     const isTie = finalPlayers.filter(p => p.score === topScore).length > 1
     return (
-      <div style={{ minHeight: "100dvh", background: BG, color: "white", padding: "40px 24px" }}>
-        <div style={{ fontSize: "clamp(56px, 16vw, 88px)", fontWeight: 900, lineHeight: 0.9, marginBottom: 32 }}>
-          Game<br />Over
-        </div>
-        <div style={{ fontSize: 17, fontWeight: 800, color: "rgba(255,255,255,0.85)", marginBottom: 16 }}>
-          Final Scores
-        </div>
-        {finalPlayers.map((p, i) => {
-          const isWinner = p.score === topScore
-          return (
-          <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.12)" }}>
-            <div style={{ background: isWinner ? YELLOW : WARM_LIGHT, color: isWinner ? "#000" : "white", fontSize: 22, fontWeight: 900, minWidth: 52, textAlign: "center", padding: "8px 0" }}>
-              {p.score}
-            </div>
-            <div>
-              <span style={{ fontSize: 22, fontWeight: 700 }}>{p.name}</span>
-              {isWinner && <span style={{ fontSize: 12, fontWeight: 800, color: YELLOW, marginLeft: 10, textTransform: "uppercase", letterSpacing: "0.1em" }}>{isTie ? "Tied!" : "Winner!"}</span>}
-            </div>
+      <div style={{ minHeight: "100dvh", background: BG, color: "white", display: "flex", flexDirection: "column" }}>
+        <div style={{ flex: 1, overflowY: "auto", padding: "40px 24px", paddingBottom: 100 }}>
+          <div style={{ fontSize: "clamp(56px, 16vw, 88px)", fontWeight: 900, lineHeight: 0.9, marginBottom: 32 }}>
+            Game<br />Over
           </div>
-          )
-        })}
-        <button
-          onClick={resetGame}
-          style={{ background: YELLOW, color: "#000", fontSize: 20, fontWeight: 900, padding: "20px", width: "100%", display: "block", marginTop: 40 }}
-        >
-          New Game
-        </button>
+          <div style={{ fontSize: 17, fontWeight: 800, color: "rgba(255,255,255,0.85)", marginBottom: 16 }}>
+            Final Scores
+          </div>
+          {finalPlayers.map((p, i) => {
+            const isWinner = p.score === topScore
+            return (
+            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.12)" }}>
+              <div style={{ background: isWinner ? YELLOW : WARM_LIGHT, color: isWinner ? "#000" : "white", fontSize: 22, fontWeight: 900, minWidth: 52, textAlign: "center", padding: "8px 0" }}>
+                {p.score}
+              </div>
+              <div>
+                <span style={{ fontSize: 22, fontWeight: 700 }}>{p.name}</span>
+                {isWinner && <span style={{ fontSize: 12, fontWeight: 800, color: YELLOW, marginLeft: 10, textTransform: "uppercase", letterSpacing: "0.1em" }}>{isTie ? "Tied!" : "Winner!"}</span>}
+              </div>
+            </div>
+            )
+          })}
+        </div>
+        <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: BG, padding: "16px 20px", paddingBottom: "max(16px, env(safe-area-inset-bottom))" }}>
+          <button
+            onClick={resetGame}
+            style={{ background: YELLOW, color: "#000", fontSize: 20, fontWeight: 900, padding: "20px", width: "100%", display: "block" }}
+          >
+            New Game
+          </button>
+        </div>
       </div>
     )
   }
@@ -518,7 +524,8 @@ export default function Play({ params }) {
     const myNextQuestion = me?.question
 
     return (
-      <div style={{ minHeight: "100dvh", background: BG, color: "white", padding: "40px 24px", display: "flex", flexDirection: "column" }}>
+      <div style={{ minHeight: "100dvh", background: BG, color: "white", display: "flex", flexDirection: "column" }}>
+        <div style={{ flex: 1, overflowY: "auto", padding: "40px 24px", paddingBottom: 100 }}>
         {game.round_index > 0 && (
           <div style={{ fontSize: 13, fontWeight: 800, opacity: 0.75, marginBottom: 12 }}>
             Round {game.round_index} complete
@@ -577,14 +584,6 @@ export default function Play({ params }) {
               maxLength={200}
               style={{ background: WARM_LIGHT, color: "white", fontSize: 20, padding: "16px 18px", width: "100%", display: "block", border: "none", outline: "none", boxSizing: "border-box" }}
             />
-            <button
-              onClick={submitRoundQuestion}
-              disabled={!roundQuestion.trim() || submittingRoundQuestion}
-              style={{ background: YELLOW, color: "#000", fontSize: 18, fontWeight: 900, padding: "16px", width: "100%", marginTop: 8, display: "block" }}
-            >
-              {submittingRoundQuestion ? "Submitting…" : "Submit Question"}
-            </button>
-
             {/* Ideas button */}
             <div style={{ marginTop: 16 }}>
               {promptsPhase !== "done" ? (  // "none" | "first" | "second" | "done"
@@ -628,13 +627,27 @@ export default function Play({ params }) {
           </div>
         )}
 
+        </div>
+        {me && !myNextQuestion && (
+          <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: BG, padding: "16px 20px", paddingBottom: "max(16px, env(safe-area-inset-bottom))" }}>
+            <button
+              onClick={submitRoundQuestion}
+              disabled={!roundQuestion.trim() || submittingRoundQuestion}
+              style={{ background: YELLOW, color: "#000", fontSize: 18, fontWeight: 900, padding: "16px", width: "100%", display: "block" }}
+            >
+              {submittingRoundQuestion ? "Submitting…" : "Submit Question"}
+            </button>
+          </div>
+        )}
         {allNextQuestionsIn && (
-          <button
-            onClick={startNextRound}
-            style={{ background: YELLOW, color: "#000", fontSize: 22, fontWeight: 900, padding: "22px", width: "100%", display: "block", marginTop: 24 }}
-          >
-            Start Round {game.round_index + 1}
-          </button>
+          <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: BG, padding: "16px 20px", paddingBottom: "max(16px, env(safe-area-inset-bottom))" }}>
+            <button
+              onClick={startNextRound}
+              style={{ background: YELLOW, color: "#000", fontSize: 22, fontWeight: 900, padding: "22px", width: "100%", display: "block" }}
+            >
+              Start Round {game.round_index + 1}
+            </button>
+          </div>
         )}
       </div>
     )
