@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "../../../lib/supabase"
+import PokeSystem, { FOOTER_H } from "../../../components/PokeSystem"
 import { useSubmitNudge } from "../../../lib/useSubmitNudge"
 
 const BG = "#6B1A44"
@@ -12,6 +13,10 @@ const RED = "#F04F52"
 const WARM_LIGHT = "#821F42"
 const CARD_BG = WARM_LIGHT
 
+
+
+const POKE_COLORS = { dark: "#4A123B", mid: "#5C1640", wl: "#821F42", yellow: "#FBDF54", notifBg: "#300A20" }
+const BOTTOM_PAD = `calc(${FOOTER_H + 8}px + env(safe-area-inset-bottom))`
 const BOT_WORDS = ["pizza","coffee","traffic","vacation","homework","laundry","dentist","parking","sunshine","deadline","wifi","elevator","printer","leftovers","voicemail"]
 const Q_TEMPLATES = [
   w => `What would you do with ${w}?`,
@@ -389,6 +394,20 @@ export default function Play({ params }) {
   }
 
   const me = players.find(p => p.id === myPlayerId)
+
+  // ── PokeSystem (always mounted for notifications) ──────────────────────────
+  const pokeSystemNode = me ? (
+    <PokeSystem
+      colors={POKE_COLORS}
+      roomCode={code}
+      currentPlayer={me.name}
+      allPlayers={players.map(p => p.name)}
+      playerDetails={players.map(p => ({ name: p.name, firstName: p.first_name, lastName: p.last_name }))}
+      gamePhase={game?.phase}
+      onResetToLobby={async () => { await supabase.rpc("gow_reset_game", { p_code: code }) }}
+    />
+  ) : null
+
   const phase = game.question_phase
   const sortedPlayers = [...players].sort((a, b) => b.score - a.score)
 
@@ -423,6 +442,7 @@ export default function Play({ params }) {
     const btnLabel = game.phase === "finished" ? "Show Winner" : stillInResults ? "Next Question" : "Continue"
 
     return (
+      <>
       <div style={{ minHeight: "100dvh", background: BG, color: "white", display: "flex", flexDirection: "column" }}>
         <div style={{ padding: "14px 20px", background: "#4A123B", flexShrink: 0 }}>
           <div style={{ fontSize: 13, fontWeight: 800, opacity: 0.75 }}>
@@ -485,7 +505,7 @@ export default function Play({ params }) {
             )}
           </div>
         </div>
-        <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: BG, padding: "16px 20px", paddingBottom: "max(16px, env(safe-area-inset-bottom))" }}>
+        <div style={{ position: "fixed", bottom: FOOTER_H, left: 0, right: 0, background: BG, padding: "16px 20px", paddingBottom: "max(16px, env(safe-area-inset-bottom))" }}>
           <button
             onClick={handleAdvanceFromResults}
             style={{ background: YELLOW, color: "#000", fontSize: 20, fontWeight: 900, padding: "20px", width: "100%", display: "block" }}
@@ -494,6 +514,8 @@ export default function Play({ params }) {
           </button>
         </div>
       </div>
+        {pokeSystemNode}
+      </>
     )
   }
 
@@ -507,6 +529,7 @@ export default function Play({ params }) {
     const topScore = finalPlayers[0]?.score ?? 0
     const isTie = finalPlayers.filter(p => p.score === topScore).length > 1
     return (
+      <>
       <div style={{ minHeight: "100dvh", background: BG, color: "white", display: "flex", flexDirection: "column" }}>
         <div style={{ flex: 1, overflowY: "auto", padding: "40px 24px", paddingBottom: 100 }}>
           <div style={{ fontSize: "clamp(56px, 16vw, 88px)", fontWeight: 900, lineHeight: 0.9, marginBottom: 32 }}>
@@ -530,7 +553,7 @@ export default function Play({ params }) {
             )
           })}
         </div>
-        <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: BG, padding: "16px 20px", paddingBottom: "max(16px, env(safe-area-inset-bottom))" }}>
+        <div style={{ position: "fixed", bottom: FOOTER_H, left: 0, right: 0, background: BG, padding: "16px 20px", paddingBottom: "max(16px, env(safe-area-inset-bottom))" }}>
           <button
             onClick={resetGame}
             style={{ background: YELLOW, color: "#000", fontSize: 20, fontWeight: 900, padding: "20px", width: "100%", display: "block" }}
@@ -539,6 +562,8 @@ export default function Play({ params }) {
           </button>
         </div>
       </div>
+        {pokeSystemNode}
+      </>
     )
   }
 
@@ -548,6 +573,7 @@ export default function Play({ params }) {
     const myNextQuestion = me?.question
 
     return (
+      <>
       <div style={{ minHeight: "100dvh", background: BG, color: "white", display: "flex", flexDirection: "column" }}>
         <div style={{ flex: 1, overflowY: "auto", padding: "40px 24px", paddingBottom: 100 }}>
         {game.round_index > 0 && (
@@ -653,7 +679,7 @@ export default function Play({ params }) {
 
         </div>
         {me && !myNextQuestion && (
-          <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: BG, padding: "16px 20px", paddingBottom: "max(16px, env(safe-area-inset-bottom))" }}>
+          <div style={{ position: "fixed", bottom: FOOTER_H, left: 0, right: 0, background: BG, padding: "16px 20px", paddingBottom: "max(16px, env(safe-area-inset-bottom))" }}>
             <button
               onClick={submitRoundQuestion}
               disabled={!roundQuestion.trim() || submittingRoundQuestion}
@@ -664,7 +690,7 @@ export default function Play({ params }) {
           </div>
         )}
         {allNextQuestionsIn && (
-          <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: BG, padding: "16px 20px", paddingBottom: "max(16px, env(safe-area-inset-bottom))" }}>
+          <div style={{ position: "fixed", bottom: FOOTER_H, left: 0, right: 0, background: BG, padding: "16px 20px", paddingBottom: "max(16px, env(safe-area-inset-bottom))" }}>
             <button
               onClick={startNextRound}
               style={{ background: YELLOW, color: "#000", fontSize: 22, fontWeight: 900, padding: "22px", width: "100%", display: "block" }}
@@ -674,6 +700,8 @@ export default function Play({ params }) {
           </div>
         )}
       </div>
+        {pokeSystemNode}
+      </>
     )
   }
 
@@ -709,6 +737,7 @@ export default function Play({ params }) {
   const notaVoters = votes.filter(v => v.answer_id === null).map(v => players.find(p => p.id === v.voter_id)?.name).filter(Boolean)
 
   return (
+    <>
     <div style={{ minHeight: "100dvh", background: BG, color: "white", display: "flex", flexDirection: "column" }}>
 
       {/* Top bar — round indicator only, no scores */}
@@ -918,5 +947,7 @@ export default function Play({ params }) {
 
       </div>
     </div>
+      {pokeSystemNode}
+    </>
   )
 }
