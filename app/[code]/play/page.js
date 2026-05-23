@@ -329,6 +329,11 @@ export default function Play({ params }) {
     setRoundQuestion("")
     setShownPrompts([])
     setPromptsPhase("none")
+    // Auto-advance if all questions are now in
+    const { data: freshPlayers } = await supabase.from("gow_players").select("question").eq("game_code", code)
+    if (freshPlayers && freshPlayers.length > 0 && freshPlayers.every(p => p.question)) {
+      await supabase.rpc("gow_start_next_round", { p_code: code })
+    }
     await loadState()
   }
 
@@ -704,12 +709,7 @@ export default function Play({ params }) {
         )}
         {allNextQuestionsIn && (
           <div style={{ position: "fixed", bottom: FOOTER_H, left: 0, right: 0, background: BG, padding: "16px 20px", paddingBottom: "max(16px, env(safe-area-inset-bottom))" }}>
-            <button
-              onClick={startNextRound}
-              style={{ background: YELLOW, color: "#000", fontSize: 22, fontWeight: 900, padding: "22px", width: "100%", display: "block" }}
-            >
-              Start Round {game.round_index + 1}
-            </button>
+            <p style={{ color: "rgba(255,255,255,0.65)", fontSize: 16, fontWeight: 700, textAlign: "center" }}>Starting round…</p>
           </div>
         )}
       </div>
