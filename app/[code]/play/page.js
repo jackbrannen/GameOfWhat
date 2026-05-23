@@ -90,6 +90,9 @@ export default function Play({ params }) {
   const [shownPrompts, setShownPrompts] = useState([])
   const [promptsPhase, setPromptsPhase] = useState("none")
   const [gameOverPlayers, setGameOverPlayers] = useState(null)
+  const channelRef = useRef(null)
+  const typingTimerRef = useRef(null)
+  const [presenceState, setPresenceState] = useState({})
 
   useEffect(() => {
     if (!game || !myPlayerId) return
@@ -180,7 +183,13 @@ export default function Play({ params }) {
       .on("postgres_changes", { event: "*", schema: "public", table: "gow_players", filter: `game_code=eq.${code}` }, loadState)
       .on("postgres_changes", { event: "*", schema: "public", table: "gow_answers" }, loadState)
       .on("postgres_changes", { event: "*", schema: "public", table: "gow_votes" }, loadState)
-      .subscribe()
+      .on("presence", { event: "sync" }, () => setPresenceState({ ...channel.presenceState() }))
+      .subscribe(async status => {
+        if (status === "SUBSCRIBED" && myPlayerId) {
+          await channel.track({ playerId: myPlayerId, typing: false })
+        }
+      })
+    channelRef.current = channel
     return () => { clearInterval(poll); document.removeEventListener("visibilitychange", handleVisibility); supabase.removeChannel(channel) }
   }, [code, myPlayerId])
 
@@ -355,6 +364,21 @@ export default function Play({ params }) {
     await supabase.rpc("gow_start_next_round", { p_code: code })
     await loadState()
   }
+
+  function trackTyping() {
+    if (!channelRef.current || !myPlayerId) return
+    channelRef.current.track({ playerId: myPlayerId, typing: true })
+    clearTimeout(typingTimerRef.current)
+    typingTimerRef.current = setTimeout(() => {
+      if (channelRef.current) channelRef.current.track({ playerId: myPlayerId, typing: false })
+    }, 3000)
+  }
+
+  const typingPlayerIds = new Set(
+    Object.values(presenceState).flatMap(presences =>
+      presences.filter(p => p.typing && p.playerId !== myPlayerId).map(p => p.playerId)
+    )
+  )
 
   if (!game) {
     return (
@@ -568,7 +592,7 @@ export default function Play({ params }) {
                 {p.id === myPlayerId && <span style={{ fontSize: 12, fontWeight: 600, opacity: 0.65, marginLeft: 6 }}>you</span>}
               </span>
               <span style={{ fontSize: 13, fontWeight: 600, opacity: 0.65 }}>
-                {p.question ? "Ready" : "Writing…"}
+                {p.question ? "Ready" : typingPlayerIds.has(p.id) ? "💬" : "Writing…"}
               </span>
             </div>
           ))}
@@ -578,7 +602,7 @@ export default function Play({ params }) {
           <div>
             <input
               value={roundQuestion}
-              onChange={e => setRoundQuestion(e.target.value)}
+              onChange={e => { setRoundQuestion(e.target.value); trackTyping() }}
               onKeyDown={e => e.key === "Enter" && submitRoundQuestion()}
               placeholder="Write a question for everyone…"
               maxLength={200}
@@ -722,7 +746,10 @@ export default function Play({ params }) {
                   return (
                     <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
                       <div style={{ width: 7, height: 7, borderRadius: "50%", background: submitted ? GREEN : "rgba(255,255,255,0.2)", flexShrink: 0 }} />
-                      <span style={{ fontSize: 16, fontWeight: 700 }}>{p.name}</span>
+                      <span style={{ fontSize: 16, fontWeight: 700 }}>
+                        {p.name}
+                        {!submitted && typingPlayerIds.has(p.id) && <span style={{ fontSize: 14, marginLeft: 6 }}>💬</span>}
+                      </span>
                     </div>
                   )
                 })}
@@ -740,7 +767,7 @@ export default function Play({ params }) {
               <div>
                 <textarea
                   value={myAnswer}
-                  onChange={e => setMyAnswer(e.target.value)}
+                  onChange={e => { setMyAnswer(e.target.value); trackTyping() }}
                   placeholder="Your answer…"
                   maxLength={300}
                   rows={3}
