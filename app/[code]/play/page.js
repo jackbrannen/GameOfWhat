@@ -421,6 +421,9 @@ export default function Play({ params }) {
     )
   )
 
+  // Must be before early return — Rules of Hooks
+  const inlinePokeCooldownRef = useRef(0)
+
   if (!game) {
     return (
       <div style={{ minHeight: "100dvh", background: BG, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -431,7 +434,6 @@ export default function Play({ params }) {
 
   const me = players.find(p => p.id === myPlayerId)
 
-  const inlinePokeCooldownRef = useRef(0)
   async function sendInlinePoke(targetName) {
     if (!me) return
     if (Date.now() < inlinePokeCooldownRef.current) return
