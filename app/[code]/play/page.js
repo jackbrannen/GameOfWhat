@@ -407,7 +407,7 @@ export default function Play({ params }) {
   }
 
   // ── PokeSystem (always mounted for notifications) ──────────────────────────
-  const pokeSystemNode = me ? (
+  const pokeSystemNode = (footer = null) => me ? (
     <PokeSystem
       colors={POKE_COLORS}
       roomCode={code}
@@ -416,7 +416,7 @@ export default function Play({ params }) {
       playerDetails={players.map(p => ({ name: p.name, firstName: p.first_name, lastName: p.last_name }))}
       gamePhase={game?.phase}
       onResetToLobby={async () => { await supabase.rpc("gow_reset_game", { p_code: code }) }}
-    />
+    >{footer}</PokeSystem>
   ) : null
 
   const phase = game.question_phase
@@ -460,7 +460,7 @@ export default function Play({ params }) {
             Round {(game.round_index ?? 0) + 1} of {game.rounds_total ?? 3}
           </div>
         </div>
-        <div style={{ flex: 1, overflowY: "auto", padding: "28px 20px", paddingBottom: 100 }}>
+        <div style={{ flex: 1, overflowY: "auto", padding: "28px 20px", paddingBottom: BOTTOM_PAD }}>
           {snapQuestion && (
             <div style={{ marginBottom: 28 }}>
               <div style={{ fontSize: 17, fontWeight: 800, color: "rgba(255,255,255,0.85)", marginBottom: 10 }}>
@@ -516,16 +516,12 @@ export default function Play({ params }) {
             )}
           </div>
         </div>
-        <div style={{ position: "fixed", bottom: FOOTER_H, left: 0, right: 0, background: BG, padding: "16px 20px", paddingBottom: "max(16px, env(safe-area-inset-bottom))" }}>
-          <button
-            onClick={handleAdvanceFromResults}
-            style={{ background: YELLOW, color: "#000", fontSize: 20, fontWeight: 900, padding: "20px", width: "100%", display: "block" }}
-          >
+      </div>
+        {pokeSystemNode(
+          <button onClick={handleAdvanceFromResults} style={{ flex: 1, height: "100%", background: YELLOW, color: "#000", fontSize: 16, fontWeight: 900 }}>
             {btnLabel}
           </button>
-        </div>
-      </div>
-        {pokeSystemNode}
+        )}
       </>
     )
   }
@@ -542,7 +538,7 @@ export default function Play({ params }) {
     return (
       <>
       <div style={{ minHeight: "100dvh", background: BG, color: "white", display: "flex", flexDirection: "column" }}>
-        <div style={{ flex: 1, overflowY: "auto", padding: "40px 24px", paddingBottom: 100 }}>
+        <div style={{ flex: 1, overflowY: "auto", padding: "40px 24px", paddingBottom: BOTTOM_PAD }}>
           <div style={{ fontSize: "clamp(56px, 16vw, 88px)", fontWeight: 900, lineHeight: 0.9, marginBottom: 32 }}>
             Game<br />Over
           </div>
@@ -564,16 +560,12 @@ export default function Play({ params }) {
             )
           })}
         </div>
-        <div style={{ position: "fixed", bottom: FOOTER_H, left: 0, right: 0, background: BG, padding: "16px 20px", paddingBottom: "max(16px, env(safe-area-inset-bottom))" }}>
-          <button
-            onClick={resetGame}
-            style={{ background: YELLOW, color: "#000", fontSize: 20, fontWeight: 900, padding: "20px", width: "100%", display: "block" }}
-          >
+      </div>
+        {pokeSystemNode(
+          <button onClick={resetGame} style={{ flex: 1, height: "100%", background: YELLOW, color: "#000", fontSize: 16, fontWeight: 900 }}>
             New Game
           </button>
-        </div>
-      </div>
-        {pokeSystemNode}
+        )}
       </>
     )
   }
@@ -585,7 +577,7 @@ export default function Play({ params }) {
     return (
       <>
       <div style={{ minHeight: "100dvh", background: BG, color: "white", display: "flex", flexDirection: "column" }}>
-        <div style={{ flex: 1, overflowY: "auto", padding: "40px 24px", paddingBottom: 100 }}>
+        <div style={{ flex: 1, overflowY: "auto", padding: "40px 24px", paddingBottom: BOTTOM_PAD }}>
         {game.round_index > 0 && (
           <div style={{ fontSize: 13, fontWeight: 800, opacity: 0.75, marginBottom: 12 }}>
             Round {game.round_index} complete
@@ -696,24 +688,16 @@ export default function Play({ params }) {
         )}
 
         </div>
-        {me && !myNextQuestion && (
-          <div style={{ position: "fixed", bottom: FOOTER_H, left: 0, right: 0, background: BG, padding: "16px 20px", paddingBottom: "max(16px, env(safe-area-inset-bottom))" }}>
-            <button
-              onClick={submitRoundQuestion}
-              disabled={!roundQuestion.trim() || submittingRoundQuestion}
-              style={{ background: YELLOW, color: "#000", fontSize: 18, fontWeight: 900, padding: "16px", width: "100%", display: "block" }}
-            >
-              {submittingRoundQuestion ? "Submitting…" : "Submit Question"}
-            </button>
-          </div>
-        )}
-        {allNextQuestionsIn && (
-          <div style={{ position: "fixed", bottom: FOOTER_H, left: 0, right: 0, background: BG, padding: "16px 20px", paddingBottom: "max(16px, env(safe-area-inset-bottom))" }}>
-            <p style={{ color: "rgba(255,255,255,0.65)", fontSize: 16, fontWeight: 700, textAlign: "center" }}>Starting round…</p>
-          </div>
-        )}
       </div>
-        {pokeSystemNode}
+        {pokeSystemNode(me && !myNextQuestion && !allNextQuestionsIn ? (
+          <button
+            onClick={submitRoundQuestion}
+            disabled={!roundQuestion.trim() || submittingRoundQuestion}
+            style={{ flex: 1, height: "100%", background: YELLOW, color: "#000", fontSize: 16, fontWeight: 900 }}
+          >
+            {submittingRoundQuestion ? "Submitting…" : "Submit Question"}
+          </button>
+        ) : null)}
       </>
     )
   }
@@ -960,7 +944,7 @@ export default function Play({ params }) {
 
       </div>
     </div>
-      {pokeSystemNode}
+      {pokeSystemNode()}
     </>
   )
 }
