@@ -204,6 +204,12 @@ export default function Play({ params }) {
   const roundIndex = game?.round_index
   useEffect(() => { setShownPrompts([]); setPromptsPhase("none") }, [roundIndex])
 
+  const allNextQuestionsIn = game?.phase === "between_rounds" && players.length > 0 && players.every(p => p.question)
+  useEffect(() => {
+    if (!allNextQuestionsIn) return
+    supabase.rpc("gow_start_next_round", { p_code: code })
+  }, [allNextQuestionsIn])
+
   // ── DUMMY GAME AUTOMATION ─────────────────────────────────
 
   // Pre-fill answer field
@@ -329,11 +335,6 @@ export default function Play({ params }) {
     setRoundQuestion("")
     setShownPrompts([])
     setPromptsPhase("none")
-    // Auto-advance if all questions are now in
-    const { data: freshPlayers } = await supabase.from("gow_players").select("question").eq("game_code", code)
-    if (freshPlayers && freshPlayers.length > 0 && freshPlayers.every(p => p.question)) {
-      await supabase.rpc("gow_start_next_round", { p_code: code })
-    }
     await loadState()
   }
 
@@ -579,7 +580,6 @@ export default function Play({ params }) {
 
   // ── BETWEEN ROUNDS ────────────────────────────────────────
   if (game.phase === "between_rounds") {
-    const allNextQuestionsIn = players.length > 0 && players.every(p => p.question)
     const myNextQuestion = me?.question
 
     return (
