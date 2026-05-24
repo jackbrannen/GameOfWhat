@@ -17,6 +17,27 @@ const CARD_BG = WARM_LIGHT
 
 const POKE_COLORS = { dark: "#4A123B", mid: "#5C1640", wl: "#821F42", yellow: "#FBDF54", notifBg: "#300A20" }
 const BOTTOM_PAD = `calc(${FOOTER_H + 8}px + env(safe-area-inset-bottom))`
+
+const ALL_GAMES = [
+  { name: "Fishbowl",         sub: "fishbowl",           color: "#3378FF" },
+  { name: "Game of What",     sub: "gameofwhat",          color: "#6B1A44" },
+  { name: "Avalon",           sub: "avalon",              color: "#0F1923" },
+  { name: "First to Worst",   sub: "firsttoworst",        color: "#004F45" },
+  { name: "Drawful",          sub: "drawful",             color: "#307977" },
+  { name: "So Clover",        sub: "soclover",            color: "#6B8C2A" },
+  { name: "Telestrations",    sub: "telestrations",       color: "#3D1060" },
+  { name: "Copycats",         sub: "copycats",            color: "#4A1A80" },
+  { name: "Codenames",        sub: "codenames",           color: "#2C2C4A" },
+  { name: "Reverse Charades", sub: "reversecharades",     color: "#1A3A1A" },
+  { name: "Exquisite Corpse", sub: "exquisite-corpse",    color: "#1A3A5C" },
+  { name: "Mr. White",        sub: "mrwhite",             color: "#1A1A2E" },
+]
+const CODE_WORDS_A = ["MAPLE","RIVER","OCEAN","SILVER","EMBER","CLOUD","STORM","FROST","AMBER","CEDAR"]
+const CODE_WORDS_B = ["RIDGE","PEAK","VALE","GROVE","CREST","BROOK","SHORE","WIND","FIELD","STONE"]
+function makeNextCode() {
+  return CODE_WORDS_A[Math.floor(Math.random() * CODE_WORDS_A.length)] +
+         CODE_WORDS_B[Math.floor(Math.random() * CODE_WORDS_B.length)]
+}
 const BOT_WORDS = ["pizza","coffee","traffic","vacation","homework","laundry","dentist","parking","sunshine","deadline","wifi","elevator","printer","leftovers","voicemail"]
 const Q_TEMPLATES = [
   w => `What would you do with ${w}?`,
@@ -108,6 +129,11 @@ export default function Play({ params }) {
   }, [game?.phase])
 
   useEffect(() => {
+    if (!game?.next_game || !game?.next_game_code) return
+    window.location.href = `https://${game.next_game}.jackbrannen.com/${game.next_game_code}`
+  }, [game?.next_game, game?.next_game_code])
+
+  useEffect(() => {
     const existing = localStorage.getItem(`gow:${code}:playerId`)
     if (existing) setMyPlayerId(existing)
     try {
@@ -119,7 +145,7 @@ export default function Play({ params }) {
   async function loadState() {
     const { data: gameData } = await supabase
       .from("gow_games")
-      .select("code,phase,round_index,rounds_total,current_question_id,question_phase,used_prompts")
+      .select("code,phase,round_index,rounds_total,current_question_id,question_phase,used_prompts,next_game,next_game_code")
       .eq("code", code)
       .single()
     if (!gameData) return
@@ -531,6 +557,11 @@ export default function Play({ params }) {
     await supabase.rpc("gow_reset_game", { p_code: code })
   }
 
+  async function pickNextGame(gameSub) {
+    const nextCode = makeNextCode()
+    await supabase.from("gow_games").update({ next_game: gameSub, next_game_code: nextCode }).eq("code", code)
+  }
+
   if (game.phase === "finished") {
     const finalPlayers = [...(gameOverPlayers ?? players)].sort((a, b) => b.score - a.score)
     const topScore = finalPlayers[0]?.score ?? 0
@@ -559,13 +590,32 @@ export default function Play({ params }) {
             </div>
             )
           })}
+
+          {/* Play another game */}
+          <div style={{ marginTop: 40 }}>
+            <div style={{ fontSize: 17, fontWeight: 800, color: "rgba(255,255,255,0.85)", marginBottom: 12 }}>
+              Play Another Game
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              {ALL_GAMES.map(g => (
+                <button
+                  key={g.sub}
+                  onClick={() => pickNextGame(g.sub)}
+                  style={{
+                    background: g.color, color: "white",
+                    fontSize: 14, fontWeight: 800,
+                    padding: "16px 12px", textAlign: "left",
+                    lineHeight: 1.2,
+                  }}
+                >
+                  {g.name}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
-        {pokeSystemNode(
-          <button onClick={resetGame} style={{ flex: 1, height: "100%", background: YELLOW, color: "#000", fontSize: 16, fontWeight: 900 }}>
-            New Game
-          </button>
-        )}
+        {pokeSystemNode()}
       </>
     )
   }
