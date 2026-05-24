@@ -111,6 +111,7 @@ export default function Play({ params }) {
   const [promptsPhase, setPromptsPhase] = useState("none")
   const [gameOverPlayers, setGameOverPlayers] = useState(null)
   const [showGameModal, setShowGameModal] = useState(false)
+  const [bonusMatchName, setBonusMatchName] = useState(null)
   const channelRef = useRef(null)
   const typingTimerRef = useRef(null)
   const [presenceState, setPresenceState] = useState({})
@@ -307,6 +308,18 @@ export default function Play({ params }) {
       p_skipped: skip,
     })
     if (error) { setSubmittingAnswer(false); return }
+    if (!skip && myAnswer.trim()) {
+      const myText = myAnswer.trim().toLowerCase()
+      const { data: freshAnswers } = await supabase
+        .from("gow_answers").select("player_id,text")
+        .eq("question_id", currentQuestion.id).eq("skipped", false)
+      const match = freshAnswers?.find(a => a.player_id !== myPlayerId && a.text?.trim().toLowerCase() === myText)
+      if (match) {
+        const matchPlayer = players.find(p => p.id === match.player_id)
+        setBonusMatchName(matchPlayer?.name || "someone")
+        setTimeout(() => setBonusMatchName(null), 4000)
+      }
+    }
     await loadState()
   }
 
@@ -833,6 +846,11 @@ export default function Play({ params }) {
               </div>
             ) : hasSubmittedAnswer ? (
               <div>
+                {bonusMatchName && (
+                  <div style={{ background: "#FBDF54", color: "#000", padding: "10px 16px", fontSize: 14, fontWeight: 800, marginBottom: 12 }}>
+                    Same answer as {bonusMatchName}! +1 bonus
+                  </div>
+                )}
                 <div style={{ fontSize: 15, fontWeight: 700, opacity: 0.65, marginBottom: 4 }}>
                   Your answer: <span style={{ opacity: 1, color: "white" }}>{hasSkipped ? "(skipped)" : myAnswerRecord?.text}</span>
                 </div>
