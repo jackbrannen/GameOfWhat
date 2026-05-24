@@ -19,6 +19,16 @@ const WORDS_A_GOW = [
   "PANDA","TIGER","OTTER","EAGLE","FALCON","ROBIN","WHALE","DOLPHIN","KOALA","ZEBRA",
 ]
 
+const INSTRUCTIONS = `Players: 4+ · Time: 8+ min
+
+A voting game about creativity and knowing your crowd.
+
+Every player writes an open-ended question that invites creative, funny answers. The game then presents each question to all the players, and all players submit an answer.
+
+Answers are revealed anonymously, and the group votes for their favorite. The author of the winning answer earns points. Identical answers also earn bonus points.
+
+High scores after all rounds win.`
+
 function splitCodeGOW(code) {
   for (const w of WORDS_A_GOW) {
     if (code.startsWith(w)) return [w, code.slice(w.length)]
@@ -71,6 +81,7 @@ export default function Lobby({ params }) {
   const [joinError, setJoinError] = useState("")
   const [rounds, setRounds] = useState("3")
   const [notFound, setNotFound] = useState(false)
+  const [showInstructions, setShowInstructions] = useState(false)
   const [confirmingStart, setConfirmingStart] = useState(false)
   const [starting, setStarting] = useState(false)
 
@@ -210,16 +221,24 @@ export default function Lobby({ params }) {
             {(() => { const [w1, w2] = splitCodeGOW(code); return <><span style={{ color: YELLOW }}>{w1}</span><span style={{ color: "rgba(255,255,255,0.75)" }}>{w2}</span></> })()}
           </div>
         </div>
-        <button
-          onClick={async () => {
-            const url = window.location.href
-            if (navigator.share) await navigator.share({ title: `Join Game of What — ${code}`, url })
-            else { await navigator.clipboard.writeText(url); alert("Link copied!") }
-          }}
-          style={{ background: WARM_LIGHT, color: "white", fontSize: 13, fontWeight: 800, padding: "10px 16px", flexShrink: 0, marginTop: 4 }}
-        >
-          Invite
-        </button>
+        <div style={{ display: "flex", gap: 8, flexShrink: 0, marginTop: 4 }}>
+          <button
+            onClick={() => setShowInstructions(true)}
+            style={{ flexShrink: 0, background: "rgba(255,255,255,0.15)", color: "white", fontSize: 15, fontWeight: 800, padding: "10px 14px" }}
+          >
+            ?
+          </button>
+          <button
+            onClick={async () => {
+              const url = window.location.href
+              if (navigator.share) await navigator.share({ title: `Join Game of What — ${code}`, url })
+              else { await navigator.clipboard.writeText(url); alert("Link copied!") }
+            }}
+            style={{ background: WARM_LIGHT, color: "white", fontSize: 13, fontWeight: 800, padding: "10px 16px" }}
+          >
+            Invite
+          </button>
+        </div>
       </div>
 
       {/* Rounds selector */}
@@ -349,6 +368,26 @@ export default function Lobby({ params }) {
           </p>
         )}
       </div>
+
+      {showInstructions && (
+        <div
+          onClick={() => setShowInstructions(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 200, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 24, overflowY: "auto" }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ background: "#1A1A2E", width: "100%", maxWidth: 480, padding: "28px 24px", marginTop: 24 }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+              <div style={{ fontSize: 20, fontWeight: 900, color: "white" }}>How to Play</div>
+              <button onClick={() => setShowInstructions(false)} style={{ background: "rgba(255,255,255,0.15)", color: "white", fontSize: 18, fontWeight: 800, padding: "6px 12px" }}>✕</button>
+            </div>
+            <div style={{ fontSize: 15, color: "rgba(255,255,255,0.85)", lineHeight: 1.7, fontWeight: 400, whiteSpace: "pre-wrap" }}>
+              {INSTRUCTIONS}
+            </div>
+          </div>
+        </div>
+      )}
 
       {confirmingStart && (
         <div
