@@ -534,7 +534,10 @@ export default function Play({ params }) {
                     </div>
                     <div>
                       <div style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.3 }}>{group.text}</div>
-                      <div style={{ fontSize: 13, fontWeight: 700, opacity: 0.65, marginTop: 3 }}>{authors.join(" & ")}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, opacity: 0.65, marginTop: 3 }}>
+                        {authors.join(" & ")}
+                        {authors.length > 1 && <span style={{ marginLeft: 6, background: YELLOW, color: "#000", fontSize: 11, fontWeight: 900, padding: "1px 5px", verticalAlign: "middle" }}>matched +1</span>}
+                      </div>
                     </div>
                   </div>
                   {groupVoters.length > 0 && (
@@ -897,9 +900,9 @@ export default function Play({ params }) {
                   <button
                     onClick={() => submitAnswer(false)}
                     disabled={!myAnswer.trim() || submittingAnswer}
-                    style={{ background: YELLOW, color: "#000", fontSize: 18, fontWeight: 900, padding: "16px", flex: 1, display: "block", animation: nudgeAnswer ? "nudgePulse 1.5s ease-in-out infinite" : "none" }}
+                    style={{ background: YELLOW, color: "#000", fontSize: 18, fontWeight: 900, padding: "16px", flex: 1, display: "block", animation: nudgeAnswer ? "nudgePulse 1.0s ease-in-out infinite" : "none" }}
                   >
-                    Submit Answer
+                    {submittingAnswer ? "Submitting…" : "Submit Answer"}
                   </button>
                   <button
                     onClick={() => submitAnswer(true)}
