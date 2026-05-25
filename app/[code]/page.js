@@ -19,16 +19,6 @@ const WORDS_A_GOW = [
   "PANDA","TIGER","OTTER","EAGLE","FALCON","ROBIN","WHALE","DOLPHIN","KOALA","ZEBRA",
 ]
 
-const INSTRUCTIONS = `Players: 4+ · Time: 8+ min
-
-A voting game about creativity and knowing your crowd.
-
-Every player writes an open-ended question that invites creative, funny answers. The game then presents each question to all the players, and all players submit an answer.
-
-Answers are revealed anonymously, and the group votes for their favorite. The author of the winning answer earns points. Identical answers also earn bonus points.
-
-High scores after all rounds win.`
-
 function splitCodeGOW(code) {
   for (const w of WORDS_A_GOW) {
     if (code.startsWith(w)) return [w, code.slice(w.length)]
@@ -84,6 +74,7 @@ export default function Lobby({ params }) {
   const [showInstructions, setShowInstructions] = useState(false)
   const [confirmingStart, setConfirmingStart] = useState(false)
   const [starting, setStarting] = useState(false)
+  const [instructions, setInstructions] = useState("")
 
   const me = players.find(p => p.id === myPlayerId)
 
@@ -122,9 +113,14 @@ export default function Lobby({ params }) {
   }, [])
 
   useEffect(() => {
+    supabase.from("game_instructions").select("body").eq("game_key", "gameofwhat").single()
+      .then(({ data }) => { if (data) setInstructions(data.body) })
+  }, [])
+
+  useEffect(() => {
     loadState()
-    let poll = setInterval(loadState, 5000)
-    function handleVisibility() { clearInterval(poll); if (!document.hidden) { loadState(); poll = setInterval(loadState, 5000) } }
+    let poll = setInterval(loadState, 1500)
+    function handleVisibility() { clearInterval(poll); if (!document.hidden) { loadState(); poll = setInterval(loadState, 1500) } }
     document.addEventListener("visibilitychange", handleVisibility)
     return () => { clearInterval(poll); document.removeEventListener("visibilitychange", handleVisibility) }
   }, [code])
@@ -383,7 +379,7 @@ export default function Lobby({ params }) {
               <button onClick={() => setShowInstructions(false)} style={{ background: "rgba(255,255,255,0.15)", color: "white", fontSize: 18, fontWeight: 800, padding: "6px 12px" }}>✕</button>
             </div>
             <div style={{ fontSize: 15, color: "rgba(255,255,255,0.85)", lineHeight: 1.7, fontWeight: 400, whiteSpace: "pre-wrap" }}>
-              {INSTRUCTIONS}
+              {instructions || "Loading…"}
             </div>
           </div>
         </div>

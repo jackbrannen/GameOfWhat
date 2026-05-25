@@ -112,6 +112,9 @@ export default function Play({ params }) {
   const [gameOverPlayers, setGameOverPlayers] = useState(null)
   const [showGameModal, setShowGameModal] = useState(false)
   const [bonusMatchName, setBonusMatchName] = useState(null)
+  const [instructions, setInstructions] = useState("")
+  const [pokeCooldownActive, setPokeCooldownActive] = useState(false)
+  const [pokeJustSent, setPokeJustSent] = useState(null)
   const channelRef = useRef(null)
   const typingTimerRef = useRef(null)
   const [presenceState, setPresenceState] = useState({})
@@ -202,8 +205,8 @@ export default function Play({ params }) {
 
   useEffect(() => {
     loadState()
-    let poll = setInterval(loadState, 5000)
-    function handleVisibility() { clearInterval(poll); if (!document.hidden) { loadState(); poll = setInterval(loadState, 5000) } }
+    let poll = setInterval(loadState, 1500)
+    function handleVisibility() { clearInterval(poll); if (!document.hidden) { loadState(); poll = setInterval(loadState, 1500) } }
     document.addEventListener("visibilitychange", handleVisibility)
     const channel = supabase.channel(`gow-play-${code}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "gow_games", filter: `code=eq.${code}` }, loadState)
@@ -225,6 +228,11 @@ export default function Play({ params }) {
 
   const roundIndex = game?.round_index
   useEffect(() => { setShownPrompts([]); setPromptsPhase("none") }, [roundIndex])
+
+  useEffect(() => {
+    supabase.from("game_instructions").select("body").eq("game_key", "gameofwhat").single()
+      .then(({ data }) => { if (data) setInstructions(data.body) })
+  }, [])
 
   const allNextQuestionsIn = game?.phase === "between_rounds" && players.length > 0 && players.every(p => p.question)
 
@@ -422,7 +430,8 @@ export default function Play({ params }) {
   )
 
   // Must be before early return — Rules of Hooks
-  const inlinePokeCooldownRef = useRef(0)
+  const myAnswerRecordEarly = answers.find(a => a.player_id === myPlayerId)
+  const nudgeAnswer = useSubmitNudge(myAnswer, !!myAnswerRecordEarly)
 
   if (!game) {
     return (
@@ -435,10 +444,12 @@ export default function Play({ params }) {
   const me = players.find(p => p.id === myPlayerId)
 
   async function sendInlinePoke(targetName) {
-    if (!me) return
-    if (Date.now() < inlinePokeCooldownRef.current) return
-    inlinePokeCooldownRef.current = Date.now() + 10000
+    if (!me || pokeCooldownActive) return
+    setPokeCooldownActive(true)
+    setPokeJustSent(targetName)
     await supabase.from("pokes").insert({ room_code: code, from_player: me.name, to_player: targetName, message: "👉" })
+    setTimeout(() => setPokeJustSent(null), 2000)
+    setTimeout(() => setPokeCooldownActive(false), 10000)
   }
 
   // ── PokeSystem (always mounted for notifications) ──────────────────────────
@@ -450,6 +461,7 @@ export default function Play({ params }) {
       allPlayers={players.map(p => p.name)}
       playerDetails={players.map(p => ({ name: p.name, firstName: p.first_name, lastName: p.last_name }))}
       gamePhase={game?.phase}
+      rules={instructions ? [["How to Play", instructions]] : null}
       onResetToLobby={async () => { await supabase.rpc("gow_reset_game", { p_code: code }) }}
     >{footer}</PokeSystem>
   ) : null
@@ -688,7 +700,11 @@ export default function Play({ params }) {
                   {isMe && <span style={{ fontSize: 12, fontWeight: 600, opacity: 0.65, marginLeft: 6 }}>you</span>}
                 </span>
                 {!done && !isMe ? (
-                  <button onClick={() => sendInlinePoke(p.name)} style={{ background: "transparent", color: "rgba(255,255,255,0.55)", fontSize: 20, padding: "0 4px", lineHeight: 1 }}>👉</button>
+                  pokeJustSent === p.name ? (
+                    <span style={{ fontSize: 18, color: GREEN, fontWeight: 700 }}>✓</span>
+                  ) : !pokeCooldownActive ? (
+                    <button onClick={() => sendInlinePoke(p.name)} style={{ background: "transparent", color: "rgba(255,255,255,0.55)", fontSize: 20, padding: "0 4px", lineHeight: 1 }}>👉</button>
+                  ) : null
                 ) : (
                   <span style={{ fontSize: 13, fontWeight: 600, opacity: 0.65 }}>
                     {done ? "Ready" : typingPlayerIds.has(p.id) ? "💬" : "Writing…"}
@@ -782,7 +798,6 @@ export default function Play({ params }) {
   const myAnswerRecord = answers.find(a => a.player_id === myPlayerId)
   const hasSubmittedAnswer = !!myAnswerRecord
   const hasSkipped = myAnswerRecord?.skipped
-  const nudgeAnswer = useSubmitNudge(myAnswer, hasSubmittedAnswer)
   const eligibleAnswerers = players.filter(p => p.id !== currentQuestion?.author_id)
   const waitingOnPlayers = eligibleAnswerers.filter(p => !answers.some(a => a.player_id === p.id))
 
