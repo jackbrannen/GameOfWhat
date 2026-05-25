@@ -217,13 +217,7 @@ export default function Lobby({ params }) {
             {(() => { const [w1, w2] = splitCodeGOW(code); return <><span style={{ color: YELLOW }}>{w1}</span><span style={{ color: "rgba(255,255,255,0.75)" }}>{w2}</span></> })()}
           </div>
         </div>
-        <div style={{ display: "flex", gap: 8, flexShrink: 0, marginTop: 4 }}>
-          <button
-            onClick={() => setShowInstructions(true)}
-            style={{ flexShrink: 0, background: "rgba(255,255,255,0.15)", color: "white", fontSize: 15, fontWeight: 800, padding: "10px 14px" }}
-          >
-            ?
-          </button>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, flexShrink: 0, marginTop: 4, alignItems: "stretch" }}>
           <button
             onClick={async () => {
               const url = window.location.href
@@ -233,6 +227,12 @@ export default function Lobby({ params }) {
             style={{ background: WARM_LIGHT, color: "white", fontSize: 13, fontWeight: 800, padding: "10px 16px" }}
           >
             Invite
+          </button>
+          <button
+            onClick={() => setShowInstructions(true)}
+            style={{ background: "rgba(255,255,255,0.15)", color: "white", fontSize: 13, fontWeight: 800, padding: "10px 14px" }}
+          >
+            How to Play
           </button>
         </div>
       </div>
