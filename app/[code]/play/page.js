@@ -224,7 +224,13 @@ export default function Play({ params }) {
   }, [code, myPlayerId])
 
   const currentQuestionId = currentQuestion?.id
-  useEffect(() => { setMyAnswer(""); changingVoteRef.current = false }, [currentQuestionId])
+  useEffect(() => {
+    setMyAnswer("")
+    setSubmittingAnswer(false)
+    setSubmittingVote(false)
+    setMyVoteId(null)
+    changingVoteRef.current = false
+  }, [currentQuestionId])
 
   const roundIndex = game?.round_index
   useEffect(() => { setShownPrompts([]); setPromptsPhase("none") }, [roundIndex])
@@ -614,10 +620,14 @@ export default function Play({ params }) {
             )
           })}
 
-          {/* Play another game */}
-          <div style={{ marginTop: 40 }}>
-            <button onClick={() => setShowGameModal(true)}
+          {/* Play again / another game */}
+          <div style={{ marginTop: 40, display: "flex", flexDirection: "column", gap: 10 }}>
+            <button onClick={resetGame}
               style={{ background: YELLOW, color: "#000", fontSize: 16, fontWeight: 900, padding: "14px 24px", width: "100%" }}>
+              Play Again
+            </button>
+            <button onClick={() => setShowGameModal(true)}
+              style={{ background: "rgba(255,255,255,0.15)", color: "white", fontSize: 16, fontWeight: 700, padding: "14px 24px", width: "100%" }}>
               Play Another Game
             </button>
           </div>
@@ -837,7 +847,7 @@ export default function Play({ params }) {
       </div>
 
       {/* Main content */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "28px 20px", paddingBottom: "max(28px, env(safe-area-inset-bottom, 28px))" }}>
+      <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", padding: "28px 20px", paddingBottom: BOTTOM_PAD }}>
 
         {/* Question */}
         {currentQuestion && (
